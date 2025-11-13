@@ -35,7 +35,7 @@ spring:
         # mysql数据源
         type: com.zaxxer.hikari.HikariDataSource
         driver-class-name: com.mysql.cj.jdbc.Driver
-        url: jdbc:mysql://${DATABASE_HOST:127.0.0.1}:${DATABASE_PORT:3306}/wvp?useUnicode=true&characterEncoding=UTF8&rewriteBatchedStatements=true&serverTimezone=PRC&useSSL=false&allowMultiQueries=true&allowPublicKeyRetrieval=true
+        url: jdbc:mysql://${DATABASE_HOST:127.0.0.1}:${DATABASE_PORT:3306}/${DATABASE_DBNAME:wvp}?useUnicode=true&characterEncoding=UTF8&rewriteBatchedStatements=true&serverTimezone=PRC&useSSL=false&allowMultiQueries=true&allowPublicKeyRetrieval=true
         username: ${DATABASE_USER:root}
         password: ${DATABASE_PASSWORD:root}
 
