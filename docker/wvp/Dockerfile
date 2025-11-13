@@ -63,7 +63,7 @@ WORKDIR /build/target
 RUN mv wvp-pro-*.jar wvp.jar
 
 
-FROM eclipse-temurin:11-jdk
+FROM harbor.intra.zeron.ai/library/eclipse-temurin:11-jdk
 RUN mkdir -p /opt/wvp
 WORKDIR /opt/wvp
 COPY --from=builder /build/target /opt/wvp
