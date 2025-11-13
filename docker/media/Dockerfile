@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 AS build
+FROM harbor.intra.zeron.ai/library/ubuntu:20.04 AS build
 
 #shell,rtmp,rtsp,rtsps,http,rtp
 EXPOSE 10935/tcp
@@ -59,7 +59,7 @@ RUN cmake .. -DENABLE_WEBRTC=true  -DOPENSSL_ROOT_DIR=/usr/local/openssl  -DOPEN
     cmake --build . --target MediaServer
 COPY config.ini /opt/media/ZLMediaKit/release/linux/Debug/
 
-FROM ubuntu:20.04
+FROM harbor.intra.zeron.ai/library/ubuntu:20.04
 
 RUN apt-get update && \
          DEBIAN_FRONTEND="noninteractive" \

@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 AS builder
+FROM harbor.intra.zeron.ai/library/ubuntu:20.04 AS builder
 
 # 设置非交互式安装和时区
 ENV DEBIAN_FRONTEND=noninteractive
