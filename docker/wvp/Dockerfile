@@ -1,4 +1,4 @@
-FROM eclipse-temurin:11-jdk AS builder
+FROM harbor.intra.zeron.ai/library/eclipse-temurin:11-jdk AS builder
 
 EXPOSE 18978/tcp
 EXPOSE 8116/tcp
