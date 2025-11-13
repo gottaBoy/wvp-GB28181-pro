@@ -1,7 +1,7 @@
 version: '3'
 services:
   polaris-redis:
-    image: redis:6.2.6-alpine  # 使用官方Redis镜像
+    image: harbor.intra.zeron.ai/library/redis:6.2.6-alpine  # 使用官方Redis镜像
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
@@ -54,7 +54,7 @@ services:
 #        ]
 
   polaris-media:
-    image: zlmediakit/zlmediakit:master  # 替换为官方镜像
+    image: harbor.intra.zeron.ai/library/zlmediakit:master  # 替换为官方镜像
     restart: always
     networks:
       - media-net
