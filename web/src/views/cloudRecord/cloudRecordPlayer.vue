@@ -290,12 +290,36 @@ export default {
       this.isFullScreen = true
     },
     setStreamInfo(streamInfo, timeLen, startTime) {
+      let videoUrl = null
+      
+      // 云端录像优先使用HTTP-FLV协议，更稳定可靠
+      // 录像回放是点播性质，不需要WebSocket的实时推送特性
       if (location.protocol === 'https:') {
-        this.videoUrl = streamInfo['wss_flv']
+        videoUrl = streamInfo['https_flv'] || streamInfo['wss_flv']
       } else {
-        this.videoUrl = streamInfo['ws_flv']
+        videoUrl = streamInfo['flv'] || streamInfo['ws_flv']
       }
-      console.log(location.protocol)
+      
+      // 防御性检查：如果主要URL不可用，尝试其他协议
+      if (!videoUrl || videoUrl === 'null' || videoUrl === 'undefined') {
+        // 按优先级尝试：flv -> https_flv -> ws_flv -> wss_flv -> rtmp
+        if (streamInfo['flv']) {
+          videoUrl = streamInfo['flv']
+        } else if (streamInfo['https_flv']) {
+          videoUrl = streamInfo['https_flv']
+        } else if (streamInfo['ws_flv']) {
+          videoUrl = streamInfo['ws_flv']
+        } else if (streamInfo['wss_flv']) {
+          videoUrl = streamInfo['wss_flv']
+        } else if (streamInfo['rtmp']) {
+          videoUrl = streamInfo['rtmp']
+        }
+      }
+      
+      console.log('云端录像 -> videoUrl:', videoUrl)
+      console.log('云端录像 -> streamInfo:', streamInfo)
+      
+      this.videoUrl = videoUrl
       this.streamInfo = streamInfo
       this.timeLen = timeLen
       this.startTime = startTime

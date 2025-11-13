@@ -615,7 +615,7 @@ assert(STACK_BASE % 16 === 0, "stack must start aligned");
 assert(DYNAMIC_BASE % 16 === 0, "heap must start aligned");
 var TOTAL_STACK = 5242880;
 if (Module["TOTAL_STACK"]) assert(TOTAL_STACK === Module["TOTAL_STACK"], "the stack size can no longer be determined at runtime");
-var INITIAL_TOTAL_MEMORY = Module["TOTAL_MEMORY"] || 2147483648;
+var INITIAL_TOTAL_MEMORY = Module["TOTAL_MEMORY"] || 2147483648; // 2GB，恢复原始值
 if (!Object.getOwnPropertyDescriptor(Module, "TOTAL_MEMORY")) Object.defineProperty(Module, "TOTAL_MEMORY", {
     configurable: true,
     get: function() {

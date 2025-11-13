@@ -1,5 +1,8 @@
-FROM ubuntu:24.04 AS builder
+FROM ubuntu:20.04 AS builder
 
+# 设置非交互式安装和时区
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Shanghai
 
 RUN apt-get update && \
     apt-get install -y nodejs npm  && \
@@ -17,7 +20,7 @@ RUN ls
 WORKDIR /src/main/resources/static
 RUN ls
 
-FROM nginx:alpine
+FROM nginx:alpine3.20-slim
 
 ARG TZ=Asia/Shanghai
 

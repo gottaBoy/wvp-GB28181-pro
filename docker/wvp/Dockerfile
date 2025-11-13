@@ -1,4 +1,4 @@
-FROM ringcentral/jdk:11 AS builder
+FROM eclipse-temurin:11-jdk AS builder
 
 EXPOSE 18978/tcp
 EXPOSE 8116/tcp
@@ -46,6 +46,10 @@ EXPOSE 8080/tcp
 
 RUN java -version && javac -version
 
+# 设置时区和非交互式安装
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Shanghai
+
 #RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
 RUN apt-get update && \
     apt-get install -y maven && \
@@ -59,7 +63,7 @@ WORKDIR /build/target
 RUN mv wvp-pro-*.jar wvp.jar
 
 
-FROM ringcentral/jdk:11
+FROM eclipse-temurin:11-jdk
 RUN mkdir -p /opt/wvp
 WORKDIR /opt/wvp
 COPY --from=builder /build/target /opt/wvp

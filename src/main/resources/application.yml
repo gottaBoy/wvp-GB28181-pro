@@ -1,5 +1,5 @@
 spring:
   application:
-    name: wvp
+    name: zstream
   profiles:
     active: 274-dev

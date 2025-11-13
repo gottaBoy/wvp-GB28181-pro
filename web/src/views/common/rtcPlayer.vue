@@ -1,6 +1,6 @@
 <template>
-  <div id="rtcPlayer">
-    <video id="webRtcPlayerBox" controls autoplay style="text-align:left;">
+  <div id="rtcPlayer" style="width: 100%; height: 100%; position: relative;">
+    <video id="webRtcPlayerBox" controls autoplay style="width: 100%; height: 100%; object-fit: contain;">
       Your browser is too old which doesn't support HTML5 video.
     </video>
   </div>
@@ -95,12 +95,19 @@ export default {
     .LodingTitle {
         min-width: 70px;
     }
-    #rtcPlayer{
-        width: 100%;
+    
+    /* 确保RTC播放器满屏显示 */
+    #rtcPlayer {
+        width: 100% !important;
+        height: 100% !important;
+        position: relative !important;
+        overflow: hidden !important;
     }
-    #webRtcPlayerBox{
-        width: 100%;
-        max-height: 56vh;
+    
+    #webRtcPlayerBox {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain !important;
         background-color: #000;
     }
     /* 隐藏logo */

@@ -103,6 +103,51 @@ server {
         proxy_send_timeout 60s;
     }
 
+    # 通用媒体流代理 - 代理所有 app/stream 路径到ZLM Media Server
+    # 匹配所有包含 .flv, .mp4, .ts, .m3u8 等媒体文件扩展名的路径
+    location ~ \.(flv|mp4|ts|m3u8|hls)$ {
+        # 代理到ZLMediakit服务
+        proxy_pass http://polaris-media:80;
+        
+        # 基础HTTP代理配置
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket支持配置
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # 超时设置，根据实际需求调整
+        proxy_connect_timeout 60s;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 60s;
+    }
+    
+    # 代理WebSocket FLV流
+    location ~ ^/[^/]+/[^/]+\.live\.flv(\?.*)?$ {
+        # 代理到ZLMediakit服务
+        proxy_pass http://polaris-media:80;
+        
+        # 基础HTTP代理配置
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket支持配置
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # 超时设置，根据实际需求调整
+        proxy_connect_timeout 60s;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 60s;
+    }
+
     error_page   500 502 503 504  /50x.html;
     location = /50x.html {
         root   html;

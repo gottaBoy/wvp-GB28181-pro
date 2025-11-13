@@ -115,7 +115,7 @@ media:
 
   record-path: /opt/media/bin/www/record/
   record-day: 7
-  record-assist-port: 0
+  record-assist-port: ${RecordAssistPort:18081}
 user-settings:
     auto-apply-play: true
     play-timeout: 30000
@@ -135,6 +135,12 @@ user-settings:
     #   - http://127.0.0.1:8080
     #   - http://0.0.0.0:8080
     #   - ${NGINX_HOST}
+jt1078:
+  enable: true
+  port: ${JT1078_PORT:21078}
+  password: ${JT1078_PASSWORD:admin123}
+ftp:
+  enable: false
 logging:
   config: classpath:logback-spring.xml
 

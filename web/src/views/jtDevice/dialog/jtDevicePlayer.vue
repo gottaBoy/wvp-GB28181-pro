@@ -489,6 +489,18 @@ export default {
       } else {
         this.videoUrl = streamInfo[this.player[this.activePlayer][0]]
       }
+      
+      // 防御性检查：如果videoUrl是undefined/null/"null"/"undefined"，尝试备用方案
+      if (!this.videoUrl || this.videoUrl === 'null' || this.videoUrl === 'undefined') {
+        if (streamInfo && streamInfo.ws_flv) {
+          this.videoUrl = streamInfo.ws_flv
+        } else if (streamInfo && streamInfo.wss_flv) {
+          this.videoUrl = streamInfo.wss_flv
+        } else if (streamInfo && streamInfo.flv) {
+          this.videoUrl = streamInfo.flv
+        }
+      }
+      
       return this.videoUrl
     },
 
@@ -596,7 +608,9 @@ export default {
           })
       } else if (this.broadcastStatus === 1) {
         this.broadcastStatus = -1
-        this.broadcastRtc.close()
+        if (this.broadcastRtc && typeof this.broadcastRtc.close === 'function') {
+          this.broadcastRtc.close()
+        }
       }
     },
     startBroadcast(url) {
@@ -679,7 +693,9 @@ export default {
         })
     },
     stopBroadcast() {
-      this.broadcastRtc.close()
+      if (this.broadcastRtc && typeof this.broadcastRtc.close === 'function') {
+        this.broadcastRtc.close()
+      }
       this.broadcastStatus = -1
       this.$store.dispatch('jtDevice/stopTalk', {
         phoneNumber: this.deviceId,

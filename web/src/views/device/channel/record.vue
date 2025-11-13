@@ -472,11 +472,25 @@ export default {
       }
     },
     getUrlByStreamInfo() {
+      let videoUrl = null
       if (location.protocol === 'https:') {
-        this.videoUrl = this.streamInfo['wss_flv']
+        videoUrl = this.streamInfo['wss_flv']
       } else {
-        this.videoUrl = this.streamInfo['ws_flv']
+        videoUrl = this.streamInfo['ws_flv']
       }
+      
+      // 防御性检查：如果ws_flv/wss_flv不可用，尝试其他协议
+      if (!videoUrl || videoUrl === 'null' || videoUrl === 'undefined') {
+        if (this.streamInfo['flv']) {
+          videoUrl = this.streamInfo['flv']
+        } else if (this.streamInfo['https_flv']) {
+          videoUrl = this.streamInfo['https_flv']
+        } else if (this.streamInfo['rtmp']) {
+          videoUrl = this.streamInfo['rtmp']
+        }
+      }
+      
+      this.videoUrl = videoUrl
       return this.videoUrl
     },
     downloadFile(row) {

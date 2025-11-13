@@ -219,6 +219,11 @@ export default {
     },
     play: function(url) {
       console.log('Jessibuca -> url: ', url)
+      // 验证URL是否有效
+      if (!url || url === 'undefined' || url === undefined) {
+        console.error('Jessibuca -> 无效的URL:', url)
+        return
+      }
       if (jessibucaPlayer[this._uid]) {
         this.destroy()
       }
@@ -290,6 +295,14 @@ export default {
 </script>
 
 <style>
+/* 确保容器满屏显示 */
+[ref="container"] {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
 .buttons-box {
   width: 100%;
   height: 28px;

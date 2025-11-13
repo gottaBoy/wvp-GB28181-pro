@@ -22,7 +22,7 @@
         >
           <el-tab-pane label="Jessibuca" name="jessibuca">
             <jessibucaPlayer
-              style="height: 22.5vw"
+              style="width: 100%; height: 60vh;"
               v-if="activePlayer === 'jessibuca'"
               ref="jessibuca"
               :visible.sync="showVideoDialog"
@@ -43,7 +43,7 @@
               :video-url="videoUrl"
               :error="videoError"
               :message="videoError"
-              height="100px"
+              style="width: 100%; height: 60vh;"
               :has-audio="hasAudio"
               fluent
               autoplay
@@ -58,6 +58,7 @@
               :error="videoError"
               :message="videoError"
               :has-audio="hasAudio"
+              style="width: 100%; height: 60vh;"
               fluent
               autoplay
               live
@@ -477,6 +478,18 @@ export default {
       } else {
         videoUrl = streamInfo[this.player[this.activePlayer][0]]
       }
+      
+      // 防御性检查：如果videoUrl是undefined/null/"null"/"undefined"，尝试备用方案
+      if (!videoUrl || videoUrl === 'null' || videoUrl === 'undefined') {
+        if (streamInfo && streamInfo.ws_flv) {
+          videoUrl = streamInfo.ws_flv
+        } else if (streamInfo && streamInfo.wss_flv) {
+          videoUrl = streamInfo.wss_flv
+        } else if (streamInfo && streamInfo.flv) {
+          videoUrl = streamInfo.flv
+        }
+      }
+      
       return videoUrl
     },
 
@@ -576,7 +589,9 @@ export default {
           })
       } else if (this.broadcastStatus === 1) {
         this.broadcastStatus = -1
-        this.broadcastRtc.close()
+        if (this.broadcastRtc && typeof this.broadcastRtc.close === 'function') {
+          this.broadcastRtc.close()
+        }
       }
     },
     startBroadcast(url) {
@@ -659,7 +674,9 @@ export default {
         })
     },
     stopBroadcast() {
-      this.broadcastRtc.close()
+      if (this.broadcastRtc && typeof this.broadcastRtc.close === 'function') {
+        this.broadcastRtc.close()
+      }
       this.broadcastStatus = -1
       this.$store.dispatch('play/broadcastStop', [this.deviceId, this.channelId])
     }

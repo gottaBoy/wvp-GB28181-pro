@@ -4,8 +4,10 @@ import store from '@/store'
 import { getToken } from '@/utils/auth'
 
 // create an axios instance
+// 生产环境: baseURL为空字符串，请求路径为 /api/xxx，由nginx代理到后端
+// 开发环境: baseURL为 /dev-api，由webpack devServer代理到后端
 const service = axios.create({
-  baseURL: process.env.VUE_APP_BASE_API, // url = base url + request url
+  baseURL: process.env.VUE_APP_BASE_API || (process.env.NODE_ENV === 'production' ? '' : '/dev-api'),
   // withCredentials: true, // send cookies when cross-domain requests
   timeout: 30000 // request timeout
 })

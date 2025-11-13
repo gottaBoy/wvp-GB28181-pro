@@ -38,6 +38,11 @@ const h265webPlayer = {}
  * @see https://github.com/numberwolf/h265web.js/blob/master/example_normal/index.js
  */
 const token = 'base64:QXV0aG9yOmNoYW5neWFubG9uZ3xudW1iZXJ3b2xmLEdpdGh1YjpodHRwczovL2dpdGh1Yi5jb20vbnVtYmVyd29sZixFbWFpbDpwb3JzY2hlZ3QyM0Bmb3htYWlsLmNvbSxRUTo1MzEzNjU4NzIsSG9tZVBhZ2U6aHR0cDovL3h2aWRlby52aWRlbyxEaXNjb3JkOm51bWJlcndvbGYjODY5NCx3ZWNoYXI6bnVtYmVyd29sZjExLEJlaWppbmcsV29ya0luOkJhaWR1'
+
+// 配置WebAssembly内存限制，避免浏览器内存分配失败
+// 注意：h265web.js的WebAssembly模块需要较大的内存，但浏览器可能无法分配2GB
+// 此处不预配置wasmMemory，让missile.js自己管理，但通过修改INITIAL_TOTAL_MEMORY来控制
+
 export default {
   name: 'H265web',
   props: ['videoUrl', 'error', 'hasAudio', 'height', 'showButton'],
@@ -72,20 +77,30 @@ export default {
     },
     immediate: true
   },
-  mounted() {
-    const paramUrl = decodeURIComponent(this.$route.params.url)
-    window.onresize = () => {
-      this.updatePlayerDomSize()
-    }
-    this.btnDom = document.getElementById('buttonsBox')
-    console.log('初始化时的地址为: ' + paramUrl)
-    if (paramUrl) {
-      this.play(this.videoUrl)
-    }
-  },
+    mounted() {
+      const paramUrl = decodeURIComponent(this.$route.params.url)
+      this.$resizeHandler = () => {
+        this.updatePlayerDomSize()
+      }
+      window.addEventListener('resize', this.$resizeHandler)
+      this.btnDom = document.getElementById('buttonsBox')
+      console.log('初始化时的地址为: ' + paramUrl)
+      if (paramUrl) {
+        this.play(this.videoUrl)
+      }
+    },
   destroyed() {
-    if (h265webPlayer[this._uid]) {
-      h265webPlayer[this._uid].destroy()
+    // 移除window resize事件监听器
+    if (this.$resizeHandler) {
+      window.removeEventListener('resize', this.$resizeHandler)
+    }
+    // 清理ResizeObserver
+    if (this.parentNodeResizeObserver) {
+      this.parentNodeResizeObserver.disconnect()
+      this.parentNodeResizeObserver = null
+    }
+    if (h265webPlayer[this._uid] && typeof h265webPlayer[this._uid].release === 'function') {
+      h265webPlayer[this._uid].release()
     }
     this.playing = false
     this.loaded = false
@@ -94,14 +109,25 @@ export default {
   methods: {
     updatePlayerDomSize() {
       const dom = this.$refs.container
-      if (!this.parentNodeResizeObserver) {
-        this.parentNodeResizeObserver = new ResizeObserver(entries => {
-          this.updatePlayerDomSize()
-        })
-        this.parentNodeResizeObserver.observe(dom.parentNode)
+      if (!dom || !dom.parentNode) {
+        return
       }
-      const boxWidth = dom.parentNode.clientWidth
-      const boxHeight = dom.parentNode.clientHeight
+      
+      let boxWidth, boxHeight
+      try {
+        if (!this.parentNodeResizeObserver) {
+          this.parentNodeResizeObserver = new ResizeObserver(entries => {
+            this.updatePlayerDomSize()
+          })
+          this.parentNodeResizeObserver.observe(dom.parentNode)
+        }
+        boxWidth = dom.parentNode.clientWidth
+        boxHeight = dom.parentNode.clientHeight
+      } catch (e) {
+        console.warn('updatePlayerDomSize error:', e)
+        return
+      }
+      
       let width = boxWidth
       let height = (9 / 16) * width
       if (boxHeight > 0 && boxWidth > boxHeight / 9 * 16) {
@@ -115,40 +141,58 @@ export default {
         width = (16 / 9) * height
       }
 
-      this.$refs.playerBox.style.width = width + 'px'
-      this.$refs.playerBox.style.height = height + 'px'
+      if (this.$refs.playerBox) {
+        this.$refs.playerBox.style.width = width + 'px'
+        this.$refs.playerBox.style.height = height + 'px'
+      }
       this.playerWidth = width
       this.playerHeight = height
-      if (this.playing) {
+      if (this.playing && h265webPlayer[this._uid] && typeof h265webPlayer[this._uid].resize === 'function') {
         h265webPlayer[this._uid].resize(this.playerWidth, this.playerHeight)
       }
     },
     resize(width, height) {
       this.playerWidth = width
       this.playerHeight = height
-      this.$refs.playerBox.style.width = width + 'px'
-      this.$refs.playerBox.style.height = height + 'px'
-      if (this.playing) {
+      if (this.$refs.playerBox) {
+        this.$refs.playerBox.style.width = width + 'px'
+        this.$refs.playerBox.style.height = height + 'px'
+      }
+      if (this.playing && h265webPlayer[this._uid] && typeof h265webPlayer[this._uid].resize === 'function') {
         h265webPlayer[this._uid].resize(this.playerWidth, this.playerHeight)
       }
     },
     create(url) {
       this.playerLoading = true
+      
+      // 检查WebAssembly是否可用（避免内存错误）
+      if (typeof WebAssembly === 'undefined') {
+        this.$message.error('浏览器不支持WebAssembly，无法使用H265web播放器')
+        this.playerLoading = false
+        return
+      }
+      
       const options = {}
-      h265webPlayer[this._uid] = new window.new265webjs(url, Object.assign(
-        {
-          player: 'glplayer', // 播放器容器id
-          width: this.playerWidth,
-          height: this.playerHeight,
-          token: token,
-          extInfo: {
-            coreProbePart: 0.4,
-            probeSize: 8192,
-            ignoreAudio: this.hasAudio === null ? 0 : (this.hasAudio ? 0 : 1)
-          }
-        },
-        options
-      ))
+      try {
+        h265webPlayer[this._uid] = new window.new265webjs(url, Object.assign(
+          {
+            player: 'glplayer', // 播放器容器id
+            width: this.playerWidth,
+            height: this.playerHeight,
+            token: token,
+            extInfo: {
+              coreProbePart: 0.4,
+              probeSize: 8192,
+              ignoreAudio: this.hasAudio === null ? 0 : (this.hasAudio ? 0 : 1)
+            }
+          },
+          options
+        ))
+      } catch (e) {
+        console.error('H265web播放器初始化失败:', e)
+        this.$message.error('H265web播放器初始化失败，请使用其他播放器')
+        this.playerLoading = false
+      }
       const h265web = h265webPlayer[this._uid]
       h265web.onOpenFullScreen = () => {
         this.fullscreen = true
@@ -267,6 +311,22 @@ export default {
 </script>
 
 <style>
+/* 确保h265Player容器满屏显示 */
+#h265Player {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 确保glplayer满屏显示 */
+#glplayer {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 .play-loading {
   width: 100%;
   height: 100%;
