@@ -20,7 +20,7 @@ RUN ls
 WORKDIR /src/main/resources/static
 RUN ls
 
-FROM nginx:alpine3.20-slim
+FROM harbor.intra.zeron.ai/library/nginx:alpine3.20-slim
 
 ARG TZ=Asia/Shanghai
 
