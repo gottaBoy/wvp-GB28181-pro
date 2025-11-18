@@ -91,67 +91,73 @@ export const constantRoutes = [
     name: '设备接入',
     meta: { title: '设备接入', icon: 'devices' },
     children: [
-      {
-        path: '/device',
-        name: 'Device',
-        component: () => import('@/views/device/index'),
-        meta: { title: '国标设备', icon: 'device' }
-      },
-      {
-        hidden: true,
-        path: '/device/record/:deviceId/:channelDeviceId',
-        name: 'DeviceRecord',
-        component: () => import('@/views/device/channel/record'),
-        meta: { title: '国标录像' }
-      },
-      {
-        path: '/jtDevice',
-        name: 'JTDevice',
-        component: () => import('@/views/jtDevice/index'),
-        meta: { title: '部标设备', icon: 'jtDevice' }
-      },
-      {
-        hidden: true,
-        path: '/jtDevice/record/:phoneNumber/:channelId',
-        name: 'JTDeviceRecord',
-        component: () => import('@/views/jtDevice/channel/record'),
-        meta: { title: '部标录像' }
-      },
+      // {
+      //   path: '/device',
+      //   name: 'Device',
+      //   component: () => import('@/views/device/index'),
+      //   meta: { title: '国标设备', icon: 'device' }
+      // },
+      // {
+      //   hidden: true,
+      //   path: '/device/record/:deviceId/:channelDeviceId',
+      //   name: 'DeviceRecord',
+      //   component: () => import('@/views/device/channel/record'),
+      //   meta: { title: '国标录像' }
+      // },
+      // {
+      //   path: '/jtDevice',
+      //   name: 'JTDevice',
+      //   component: () => import('@/views/jtDevice/index'),
+      //   meta: { title: '部标设备', icon: 'jtDevice' }
+      // },
+      // {
+      //   hidden: true,
+      //   path: '/jtDevice/record/:phoneNumber/:channelId',
+      //   name: 'JTDeviceRecord',
+      //   component: () => import('@/views/jtDevice/channel/record'),
+      //   meta: { title: '部标录像' }
+      // },
       {
         path: '/push',
         name: 'PushList',
         component: () => import('@/views/streamPush/index'),
         meta: { title: '推流列表', icon: 'streamPush' }
       },
+      // {
+      //   path: '/proxy',
+      //   name: 'Proxy',
+      //   component: () => import('@/views/streamProxy/index'),
+      //   meta: { title: '拉流代理', icon: 'streamProxy' }
+      // },
       {
-        path: '/proxy',
-        name: 'Proxy',
-        component: () => import('@/views/streamProxy/index'),
-        meta: { title: '拉流代理', icon: 'streamProxy' }
+        path: '/vehicle',
+        name: 'Vehicle',
+        component: () => import('@/views/vehicle/index'),
+        meta: { title: '车辆管理', icon: 'devices' }
       }
     ]
   },
-  {
-    path: '/commonChannel',
-    component: Layout,
-    redirect: '/commonChannel/region',
-    name: '组织结构',
-    meta: { title: '组织结构', icon: 'tree' },
-    children: [
-      {
-        path: 'region',
-        name: 'Region',
-        component: () => import('@/views/channel/region/index'),
-        meta: { title: '行政区划', icon: 'region' }
-      },
-      {
-        path: 'group',
-        name: 'Group',
-        component: () => import('@/views/channel/group/index'),
-        meta: { title: '业务分组', icon: 'tree' }
-      }
-    ]
-  },
+  // {
+  //   path: '/commonChannel',
+  //   component: Layout,
+  //   redirect: '/commonChannel/region',
+  //   name: '组织结构',
+  //   meta: { title: '组织结构', icon: 'tree' },
+  //   children: [
+  //     {
+  //       path: 'region',
+  //       name: 'Region',
+  //       component: () => import('@/views/channel/region/index'),
+  //       meta: { title: '行政区划', icon: 'region' }
+  //     },
+  //     {
+  //       path: 'group',
+  //       name: 'Group',
+  //       component: () => import('@/views/channel/group/index'),
+  //       meta: { title: '业务分组', icon: 'tree' }
+  //     }
+  //   ]
+  // },
   {
     path: '/recordPlan',
     component: Layout,
@@ -198,19 +204,19 @@ export const constantRoutes = [
       }
     ]
   },
-  {
-    path: '/platform',
-    component: Layout,
-    redirect: '/platform',
-    children: [
-      {
-        path: '',
-        name: 'Platform',
-        component: () => import('@/views/platform/index'),
-        meta: { title: '国标级联', icon: 'platform' }
-      }
-    ]
-  },
+  // {
+  //   path: '/platform',
+  //   component: Layout,
+  //   redirect: '/platform',
+  //   children: [
+  //     {
+  //       path: '',
+  //       name: 'Platform',
+  //       component: () => import('@/views/platform/index'),
+  //       meta: { title: '国标级联', icon: 'platform' }
+  //     }
+  //   ]
+  // },
   {
     path: '/user',
     component: Layout,
@@ -237,31 +243,43 @@ export const constantRoutes = [
   //     }
   //   ]
   // },
+  // {
+  //   path: '/operations',
+  //   component: Layout,
+  //   meta: { title: '运维中心', icon: 'operations' },
+  //   redirect: '/operations/systemInfo',
+  //   children: [
+  //     {
+  //       path: '/operations/systemInfo',
+  //       name: 'OperationsSystemInfo',
+  //       component: () => import('@/views/operations/systemInfo'),
+  //       meta: { title: '平台信息', icon: 'systemInfo' }
+  //     },
+  //     {
+  //       path: '/operations/historyLog',
+  //       name: 'OperationsHistoryLog',
+  //       component: () => import('@/views/operations/historyLog'),
+  //       meta: { title: '历史日志', icon: 'historyLog' }
+  //     },
+  //     {
+  //       path: '/operations/realLog',
+  //       name: 'OperationsRealLog',
+  //       component: () => import('@/views/operations/realLog'),
+  //       meta: { title: '实时日志', icon: 'realLog' }
+  //     }
+  //   ]
+  // },
   {
-    path: '/operations',
+    path: '/vehicle/:vehicleId/cameras',
+    name: 'VehicleCameras',
     component: Layout,
-    meta: { title: '运维中心', icon: 'operations' },
-    redirect: '/operations/systemInfo',
-    children: [
-      {
-        path: '/operations/systemInfo',
-        name: 'OperationsSystemInfo',
-        component: () => import('@/views/operations/systemInfo'),
-        meta: { title: '平台信息', icon: 'systemInfo' }
-      },
-      {
-        path: '/operations/historyLog',
-        name: 'OperationsHistoryLog',
-        component: () => import('@/views/operations/historyLog'),
-        meta: { title: '历史日志', icon: 'historyLog' }
-      },
-      {
-        path: '/operations/realLog',
-        name: 'OperationsRealLog',
-        component: () => import('@/views/operations/realLog'),
-        meta: { title: '实时日志', icon: 'realLog' }
-      }
-    ]
+    hidden: true,
+    children: [{
+      path: '',
+      name: 'VehicleCamerasDetail',
+      component: () => import('@/views/vehicle/detail'),
+      meta: { title: '车辆相机管理' }
+    }]
   },
   {
     path: '/play/wasm/:url',

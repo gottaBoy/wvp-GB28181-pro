@@ -5,6 +5,8 @@ import com.genersoft.iot.vmp.common.StreamInfo;
 import com.genersoft.iot.vmp.conf.UserSetting;
 import com.genersoft.iot.vmp.conf.exception.ControllerException;
 import com.genersoft.iot.vmp.gb28181.bean.CommonGBChannel;
+import com.genersoft.iot.vmp.gb28181.bean.VehicleCamera;
+import com.genersoft.iot.vmp.gb28181.dao.VehicleMapper;
 import com.genersoft.iot.vmp.gb28181.service.IGbChannelService;
 import com.genersoft.iot.vmp.media.bean.MediaInfo;
 import com.genersoft.iot.vmp.media.bean.MediaServer;
@@ -60,6 +62,9 @@ public class StreamPushServiceImpl implements IStreamPushService {
     @Autowired
     private IGbChannelService gbChannelService;
 
+    @Autowired(required = false)
+    private VehicleMapper vehicleMapper;
+
     /**
      * 流到来的处理
      */
@@ -93,6 +98,7 @@ public class StreamPushServiceImpl implements IStreamPushService {
             streamPush.setUpdateTime(DateUtil.getNow());
             streamPush.setPushTime(DateUtil.getNow());
             add(streamPush);
+            streamPushInDb = streamPush;
         }else {
             streamPushInDb.setPushTime(DateUtil.getNow());
             streamPushInDb.setPushing(true);
@@ -100,6 +106,9 @@ public class StreamPushServiceImpl implements IStreamPushService {
             streamPushInDb.setMediaServerId(mediaInfo.getMediaServer().getId());
             updatePushStatus(streamPushInDb);
         }
+        
+        // 同步更新车辆相机推流状态（如果app是车辆ID格式）
+        syncVehicleCameraPushStatus(streamPushInDb, true);
         // 冗余数据，自己系统中自用
         if (!"broadcast".equals(event.getApp()) && !"talk".equals(event.getApp())) {
             redisCatchStorage.addPushListItem(event.getApp(), event.getStream(), event.getMediaInfo());
@@ -147,7 +156,23 @@ public class StreamPushServiceImpl implements IStreamPushService {
         if (streamPush.getGbDeviceId() != null) {
             streamPush.setPushing(false);
             updatePushStatus(streamPush);
+            // 同步更新车辆相机推流状态
+            syncVehicleCameraPushStatus(streamPush, false);
         }else {
+            // 删除推流记录前，先清空相机的stream_push_id关联
+            if (vehicleMapper != null && streamPush.getId() != null) {
+                try {
+                    VehicleCamera camera = vehicleMapper.getCameraByStreamPushId(streamPush.getId());
+                    if (camera != null) {
+                        camera.setStreamPushId(null);
+                        vehicleMapper.updateCamera(camera);
+                        log.debug("[删除推流记录] 已清空相机的stream_push_id关联: vehicleId={}, cameraId={}, streamPushId={}", 
+                                camera.getVehicleId(), camera.getCameraId(), streamPush.getId());
+                    }
+                } catch (Exception e) {
+                    log.trace("[删除推流记录] 清空stream_push_id关联时异常（可能不是车辆推流）: {}", e.getMessage());
+                }
+            }
             deleteByAppAndStream(event.getApp(), event.getStream());
         }
     }
@@ -575,6 +600,87 @@ public class StreamPushServiceImpl implements IStreamPushService {
             gbChannelService.delete(streamPush.getGbId());
         }
         return streamPushMapper.del(id);
+    }
+
+    /**
+     * 同步更新车辆相机推流状态
+     * 当推流状态变化时，自动更新对应的车辆相机状态
+     */
+    private void syncVehicleCameraPushStatus(StreamPush streamPush, boolean pushing) {
+        if (vehicleMapper == null) {
+            return;  // 如果VehicleMapper不存在，跳过
+        }
+        
+        try {
+            // 根据推流ID查找相机（如果推流ID关联了相机）
+            if (streamPush.getId() != null) {
+                VehicleCamera camera = vehicleMapper.getCameraByStreamPushId(streamPush.getId());
+                if (camera != null) {
+                    String currentTime = DateUtil.getNow();
+                    String status = pushing ? "active" : "inactive";
+                    String pushTime = pushing ? currentTime : null;
+                    vehicleMapper.updateCameraPushStatus(
+                            camera.getVehicleId(), 
+                            camera.getCameraId(), 
+                            pushing, 
+                            status, 
+                            pushTime, 
+                            currentTime
+                    );
+                    log.debug("[同步相机推流状态] vehicleId={}, cameraId={}, pushing={}", 
+                            camera.getVehicleId(), camera.getCameraId(), pushing);
+                }
+            }
+            
+            // 也尝试通过app和stream匹配（app=vehicleId, stream=cameraId）
+            // 这种方式适用于推流记录已存在但还未关联的情况
+            // 注意：只有当通过stream_push_id找不到相机时，才尝试这种方式
+            if (streamPush.getId() == null || 
+                vehicleMapper.getCameraByStreamPushId(streamPush.getId()) == null) {
+                if (streamPush.getApp() != null && streamPush.getStream() != null) {
+                    try {
+                        List<VehicleCamera> cameras = vehicleMapper.getCamerasByVehicleId(streamPush.getApp());
+                        if (cameras != null && !cameras.isEmpty()) {
+                            VehicleCamera matchedCamera = cameras.stream()
+                                    .filter(c -> c.getCameraId().equals(streamPush.getStream()))
+                                    .findFirst()
+                                    .orElse(null);
+                            
+                            if (matchedCamera != null) {
+                                if (matchedCamera.getStreamPushId() == null) {
+                                    // 如果相机还没有关联推流ID，先关联
+                                    matchedCamera.setStreamPushId(streamPush.getId());
+                                    vehicleMapper.updateCamera(matchedCamera);
+                                    log.debug("[关联推流ID] vehicleId={}, cameraId={}, streamPushId={}", 
+                                            streamPush.getApp(), streamPush.getStream(), streamPush.getId());
+                                }
+                                // 更新推流状态
+                                String currentTime = DateUtil.getNow();
+                                String status = pushing ? "active" : "inactive";
+                                String pushTime = pushing ? currentTime : null;
+                                vehicleMapper.updateCameraPushStatus(
+                                        matchedCamera.getVehicleId(), 
+                                        matchedCamera.getCameraId(), 
+                                        pushing, 
+                                        status, 
+                                        pushTime, 
+                                        currentTime
+                                );
+                                log.debug("[同步相机推流状态] vehicleId={}, cameraId={}, pushing={}", 
+                                        matchedCamera.getVehicleId(), matchedCamera.getCameraId(), pushing);
+                            }
+                        }
+                    } catch (Exception e) {
+                        // 如果app不是车辆ID格式，查询会失败，这是正常的，忽略异常
+                        log.trace("[同步相机推流状态] app可能不是车辆ID: app={}, stream={}", 
+                                streamPush.getApp(), streamPush.getStream());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[同步相机推流状态] 异常: app={}, stream={}", 
+                    streamPush.getApp(), streamPush.getStream(), e);
+        }
     }
 
     @Override
