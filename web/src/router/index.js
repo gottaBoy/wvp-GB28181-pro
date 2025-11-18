@@ -66,25 +66,25 @@ export const constantRoutes = [
       meta: { title: '分屏监控', icon: 'live' }
     }]
   },
-  {
-    path: '/channel',
-    component: Layout,
-    redirect: '/channel',
-    onlyIndex: 0,
-    children: [{
-      path: '/channel',
-      name: 'Channel',
-      component: () => import('@/views/channel/index'),
-      meta: { title: '通道列表', icon: 'channelManger'}
-    },
-    {
-      path: '/channel/record/:channelId',
-      name: 'CommonRecord',
-      component: () => import('@/views/channel/record'),
-      meta: { title: '设备录像' }
-    }
-    ]
-  },
+  // {
+  //   path: '/channel',
+  //   component: Layout,
+  //   redirect: '/channel',
+  //   onlyIndex: 0,
+  //   children: [{
+  //     path: '/channel',
+  //     name: 'Channel',
+  //     component: () => import('@/views/channel/index'),
+  //     meta: { title: '通道列表', icon: 'channelManger'}
+  //   },
+  //   {
+  //     path: '/channel/record/:channelId',
+  //     name: 'CommonRecord',
+  //     component: () => import('@/views/channel/record'),
+  //     meta: { title: '设备录像' }
+  //   }
+  //   ]
+  // },
   {
     path: '/device',
     component: Layout,
@@ -134,6 +134,12 @@ export const constantRoutes = [
         name: 'Vehicle',
         component: () => import('@/views/vehicle/index'),
         meta: { title: '车辆管理', icon: 'devices' }
+      },
+      {
+        path: '/vehicle/monitor',
+        name: 'VehicleMonitor',
+        component: () => import('@/views/vehicle/VehicleCameraMonitor'),
+        meta: { title: '车辆监控', icon: 'video-camera' }
       }
     ]
   },
