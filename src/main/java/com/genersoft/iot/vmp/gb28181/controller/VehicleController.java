@@ -6,6 +6,7 @@ import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleCameraDTO;
 import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleCamerasUpdateDTO;
 import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleHeartbeatDTO;
 import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleRegisterDTO;
+import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleUpdateDTO;
 import com.genersoft.iot.vmp.gb28181.service.IVehicleService;
 import com.genersoft.iot.vmp.vmanager.bean.ErrorCode;
 import com.genersoft.iot.vmp.vmanager.bean.WVPResult;
@@ -92,6 +93,31 @@ public class VehicleController {
         } catch (Exception e) {
             log.error("[车辆心跳] 更新失败: vehicleId={}", vehicleId, e);
             return WVPResult.fail(ErrorCode.ERROR500.getCode(), "心跳更新失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "更新车辆信息", description = "更新车辆基本信息，IP地址只有在不为空时才会更新")
+    @PutMapping("/{vehicleId}")
+    public WVPResult<Void> updateVehicle(
+            @Parameter(description = "车辆ID", required = true) @PathVariable String vehicleId,
+            @RequestBody VehicleUpdateDTO updateDTO) {
+        log.info("[更新车辆信息] vehicleId={}, vehicleName={}, ipAddress={}", 
+                vehicleId, updateDTO.getVehicleName(), updateDTO.getIpAddress());
+
+        if (!StringUtils.hasText(vehicleId)) {
+            return WVPResult.fail(ErrorCode.ERROR400.getCode(), "车辆ID不能为空");
+        }
+
+        try {
+            boolean success = vehicleService.updateVehicleInfo(vehicleId, updateDTO);
+            if (success) {
+                return WVPResult.<Void>success(null);
+            } else {
+                return WVPResult.fail(ErrorCode.ERROR404.getCode(), "车辆不存在");
+            }
+        } catch (Exception e) {
+            log.error("[更新车辆信息] 更新失败: vehicleId={}", vehicleId, e);
+            return WVPResult.fail(ErrorCode.ERROR500.getCode(), "车辆信息更新失败: " + e.getMessage());
         }
     }
 
@@ -254,21 +280,36 @@ public class VehicleController {
     public WVPResult<Void> subscribeVehicleCameras(
             @Parameter(description = "车辆ID", required = true) @PathVariable String vehicleId,
             @RequestBody List<String> cameraIds) {
-        log.info("[批量订阅相机] vehicleId={}, cameraIds={}", vehicleId, cameraIds);
+        log.info("[批量订阅相机] 开始处理订阅请求: vehicleId={}, cameraIds={}, 相机数量={}", 
+                vehicleId, cameraIds, cameraIds != null ? cameraIds.size() : 0);
 
         if (!StringUtils.hasText(vehicleId) || cameraIds == null || cameraIds.isEmpty()) {
+            log.warn("[批量订阅相机] 参数验证失败: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
             return WVPResult.fail(ErrorCode.ERROR400.getCode(), "车辆ID和相机ID列表不能为空");
         }
 
+        // 打印详细的请求参数
+        log.info("[批量订阅相机] 请求详情:");
+        log.info("  - 车辆ID: {}", vehicleId);
+        log.info("  - 相机ID列表: {}", cameraIds);
+        for (int i = 0; i < cameraIds.size(); i++) {
+            log.info("  - 相机[{}]: {}", i, cameraIds.get(i));
+        }
+
         try {
+            log.info("[批量订阅相机] 调用服务层开始订阅");
             boolean success = vehicleService.subscribeVehicleCameras(vehicleId, cameraIds);
+            
             if (success) {
+                log.info("[批量订阅相机] 订阅成功: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
                 return WVPResult.<Void>success(null);
             } else {
+                log.warn("[批量订阅相机] 订阅失败: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
                 return WVPResult.fail(ErrorCode.ERROR100.getCode(), "订阅相机失败");
             }
         } catch (Exception e) {
-            log.error("[批量订阅相机] 异常: vehicleId={}, cameraIds={}", vehicleId, cameraIds, e);
+            log.error("[批量订阅相机] 发生异常: vehicleId={}, cameraIds={}", vehicleId, cameraIds, e);
+            log.error("[批量订阅相机] 异常详细信息: {}", e.getMessage(), e);
             return WVPResult.fail(ErrorCode.ERROR500.getCode(), "订阅相机异常: " + e.getMessage());
         }
     }

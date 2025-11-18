@@ -5,6 +5,7 @@ import com.genersoft.iot.vmp.gb28181.bean.VehicleCamera;
 import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleCamerasUpdateDTO;
 import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleHeartbeatDTO;
 import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleRegisterDTO;
+import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleUpdateDTO;
 
 import java.util.List;
 
@@ -134,5 +135,14 @@ public interface IVehicleService {
      * @return 处理的车辆数量
      */
     int processHeartbeatTimeout(int timeoutSeconds);
+
+    /**
+     * 更新车辆基本信息
+     * IP地址只有在不为空时才会更新，避免意外清空IP地址
+     * @param vehicleId 车辆ID
+     * @param updateDTO 更新信息
+     * @return 是否成功
+     */
+    boolean updateVehicleInfo(String vehicleId, VehicleUpdateDTO updateDTO);
 }
 

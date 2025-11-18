@@ -7,6 +7,7 @@ import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleCamerasUpdateDTO;
 import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleCameraDTO;
 import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleHeartbeatDTO;
 import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleRegisterDTO;
+import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleUpdateDTO;
 import com.genersoft.iot.vmp.gb28181.dao.VehicleMapper;
 import com.genersoft.iot.vmp.gb28181.service.IVehicleHttpClientService;
 import com.genersoft.iot.vmp.gb28181.service.IVehicleService;
@@ -113,8 +114,6 @@ public class VehicleServiceImpl implements IVehicleService {
         log.debug("[车辆心跳] vehicleId: {}", vehicleId);
 
         String currentTime = DateUtil.getNow();
-        String ipAddress = StringUtils.hasText(heartbeatDTO.getIpAddress()) 
-                ? heartbeatDTO.getIpAddress() : "";
         // 收到心跳时，强制设置状态为在线
         String status = "online";
         String lastHeartbeat = StringUtils.hasText(heartbeatDTO.getLastHeartbeat()) 
@@ -122,6 +121,25 @@ public class VehicleServiceImpl implements IVehicleService {
 
         // 先检查车辆是否存在以及当前状态
         Vehicle existingVehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
+        
+        String ipAddress;
+        if (existingVehicle != null) {
+            // 车辆已存在，只有当传入的IP地址不为空时才更新IP地址
+            if (StringUtils.hasText(heartbeatDTO.getIpAddress())) {
+                ipAddress = heartbeatDTO.getIpAddress();
+                log.debug("[车辆心跳] 更新IP地址: vehicleId={}, 新IP={}, 原IP={}", 
+                         vehicleId, ipAddress, existingVehicle.getIpAddress());
+            } else {
+                // 保持原有IP地址不变
+                ipAddress = existingVehicle.getIpAddress();
+                log.debug("[车辆心跳] 保持原IP地址: vehicleId={}, IP={}", vehicleId, ipAddress);
+            }
+        } else {
+            // 新车辆，使用传入的IP地址或空字符串
+            ipAddress = StringUtils.hasText(heartbeatDTO.getIpAddress()) 
+                    ? heartbeatDTO.getIpAddress() : "";
+            log.debug("[车辆心跳] 新车辆IP地址: vehicleId={}, IP={}", vehicleId, ipAddress);
+        }
         
         int result = vehicleMapper.updateVehicleHeartbeat(vehicleId, ipAddress, status, lastHeartbeat, currentTime);
         
@@ -386,17 +404,30 @@ public class VehicleServiceImpl implements IVehicleService {
      * 启动相机推流
      */
     public boolean startCameraStream(String vehicleId, String cameraId) {
-        log.info("[启动推流] vehicleId={}, cameraId={}", vehicleId, cameraId);
+        log.info("[启动推流] 开始处理: vehicleId={}, cameraId={}", vehicleId, cameraId);
         
-        VehicleCamera camera = vehicleMapper.getCamerasByVehicleId(vehicleId).stream()
+        // 检查车辆是否存在
+        Vehicle vehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
+        if (vehicle == null) {
+            log.error("[启动推流] 车辆不存在: vehicleId={}", vehicleId);
+            return false;
+        }
+        
+        List<VehicleCamera> cameras = vehicleMapper.getCamerasByVehicleId(vehicleId);
+        log.debug("[启动推流] 找到相机数量: {}", cameras.size());
+        
+        VehicleCamera camera = cameras.stream()
                 .filter(c -> c.getCameraId().equals(cameraId))
                 .findFirst()
                 .orElse(null);
         
         if (camera == null) {
-            log.warn("[启动推流] 相机不存在: vehicleId={}, cameraId={}", vehicleId, cameraId);
+            log.error("[启动推流] 相机不存在: vehicleId={}, cameraId={}", vehicleId, cameraId);
             return false;
         }
+        
+        log.info("[启动推流] 找到相机: vehicleId={}, cameraId={}, cameraDbId={}", 
+                vehicleId, cameraId, camera.getId());
 
         // 确保推流记录存在（如果不存在则创建）
         StreamPush streamPush = streamPushService.getPush(vehicleId, cameraId);
@@ -410,24 +441,31 @@ public class VehicleServiceImpl implements IVehicleService {
                 return false;
             }
         }
+        
+        log.info("[启动推流] 使用推流记录: pushId={}, app={}, stream={}", 
+                streamPush.getId(), streamPush.getApp(), streamPush.getStream());
 
         try {
             // 调用推流服务启动推流（使用推流ID）
+            log.info("[启动推流] 调用推流服务: pushId={}", streamPush.getId());
             streamPushPlayService.start(streamPush.getId(), (code, msg, streamInfo) -> {
                 String currentTime = DateUtil.getNow();
+                log.info("[启动推流] 回调结果: code={}, msg={}, streamInfo={}", code, msg, streamInfo);
                 if (code == 0 && streamInfo != null) {
                     // 推流成功，更新相机状态
                     vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
-                    log.info("[启动推流] 成功: vehicleId={}, cameraId={}", vehicleId, cameraId);
+                    log.info("[启动推流] 成功并更新状态: vehicleId={}, cameraId={}", vehicleId, cameraId);
                 } else {
                     // 推流失败
                     vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, false, "inactive", null, currentTime);
-                    log.warn("[启动推流] 失败: vehicleId={}, cameraId={}, msg={}", vehicleId, cameraId, msg);
+                    log.warn("[启动推流] 失败并更新状态: vehicleId={}, cameraId={}, code={}, msg={}", 
+                            vehicleId, cameraId, code, msg);
                 }
             }, null, null);
+            log.info("[启动推流] 推流服务调用成功，等待异步回调");
             return true;
         } catch (Exception e) {
-            log.error("[启动推流] 异常: vehicleId={}, cameraId={}", vehicleId, cameraId, e);
+            log.error("[启动推流] 推流服务调用异常: vehicleId={}, cameraId={}", vehicleId, cameraId, e);
             return false;
         }
     }
@@ -466,6 +504,8 @@ public class VehicleServiceImpl implements IVehicleService {
 
     @Override
     public boolean subscribeVehicleCameras(String vehicleId, List<String> cameraIds) {
+        log.info("[车辆相机订阅] 开始处理订阅请求: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
+        
         if (!StringUtils.hasText(vehicleId) || cameraIds == null || cameraIds.isEmpty()) {
             log.warn("[车辆相机订阅] 参数无效: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
             return false;
@@ -473,17 +513,26 @@ public class VehicleServiceImpl implements IVehicleService {
 
         Vehicle vehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
         if (vehicle == null) {
-            log.warn("[车辆相机订阅] 车辆不存在: vehicleId={}", vehicleId);
+            log.error("[车辆相机订阅] 车辆不存在: vehicleId={}", vehicleId);
             return false;
         }
 
         String ipAddress = vehicle.getIpAddress();
         if (!StringUtils.hasText(ipAddress)) {
-            log.warn("[车辆相机订阅] 车辆IP地址为空: vehicleId={}", vehicleId);
+            log.error("[车辆相机订阅] 车辆IP地址为空: vehicleId={}, 车辆信息: {}", vehicleId, vehicle);
             return false;
         }
 
+        log.info("[车辆相机订阅] 准备调用车端API:");
+        log.info("  - 车辆ID: {}", vehicleId);
+        log.info("  - 车辆IP地址: {}", ipAddress);
+        log.info("  - API端口: {}", DEFAULT_HTTP_API_PORT);
+        log.info("  - 相机ID列表: {}", cameraIds);
+        log.info("  - 请求URL: http://{}:{}/api/cameras/subscribe", ipAddress, DEFAULT_HTTP_API_PORT);
+
         try {
+            log.info("[车辆相机订阅] 开始调用车辆端HTTP API");
+            
             // 调用车辆端HTTP API
             boolean success = vehicleHttpClientService.subscribeCameras(
                 ipAddress, 
@@ -491,6 +540,8 @@ public class VehicleServiceImpl implements IVehicleService {
                 cameraIds, 
                 null // 暂时不使用API密钥，后续可从配置获取
             );
+            
+            log.info("[车辆相机订阅] 车端API调用完成: success={}", success);
 
             if (success) {
                 // 为每个相机创建推流记录并更新状态
@@ -913,6 +964,60 @@ public class VehicleServiceImpl implements IVehicleService {
         } catch (Exception e) {
             log.error("[车辆心跳检测] 检查心跳超时异常", e);
             return 0;
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean updateVehicleInfo(String vehicleId, VehicleUpdateDTO updateDTO) {
+        log.info("[更新车辆信息] vehicleId={}, vehicleName={}, ipAddress={}, status={}", 
+                vehicleId, updateDTO.getVehicleName(), updateDTO.getIpAddress(), updateDTO.getStatus());
+
+        // 检查车辆是否存在
+        Vehicle existingVehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
+        if (existingVehicle == null) {
+            log.warn("[更新车辆信息] 车辆不存在: {}", vehicleId);
+            return false;
+        }
+
+        String currentTime = DateUtil.getNow();
+        
+        // 准备更新参数
+        String vehicleName = StringUtils.hasText(updateDTO.getVehicleName()) 
+                ? updateDTO.getVehicleName() : existingVehicle.getVehicleName();
+        String status = StringUtils.hasText(updateDTO.getStatus()) 
+                ? updateDTO.getStatus() : existingVehicle.getStatus();
+        String remark = updateDTO.getRemark() != null 
+                ? updateDTO.getRemark() : existingVehicle.getRemark();
+
+        try {
+            // 检查是否需要更新IP地址
+            if (StringUtils.hasText(updateDTO.getIpAddress())) {
+                // IP地址不为空，更新包括IP地址在内的所有信息
+                log.info("[更新车辆信息] 更新IP地址: vehicleId={}, 原IP={}, 新IP={}", 
+                        vehicleId, existingVehicle.getIpAddress(), updateDTO.getIpAddress());
+                        
+                int result = vehicleMapper.updateVehicleHeartbeat(
+                        vehicleId, 
+                        updateDTO.getIpAddress(), 
+                        status, 
+                        existingVehicle.getLastHeartbeat(), 
+                        currentTime);
+                        
+                if (result > 0) {
+                    // 如果IP地址更新成功，还需要更新其他基本信息
+                    vehicleMapper.updateVehicleBasicInfo(vehicleId, vehicleName, status, remark, currentTime);
+                }
+                return result > 0;
+            } else {
+                // IP地址为空，只更新基本信息，不修改IP地址
+                log.info("[更新车辆信息] 不更新IP地址，仅更新基本信息: vehicleId={}", vehicleId);
+                int result = vehicleMapper.updateVehicleBasicInfo(vehicleId, vehicleName, status, remark, currentTime);
+                return result > 0;
+            }
+        } catch (Exception e) {
+            log.error("[更新车辆信息] 更新异常: vehicleId={}", vehicleId, e);
+            return false;
         }
     }
 }

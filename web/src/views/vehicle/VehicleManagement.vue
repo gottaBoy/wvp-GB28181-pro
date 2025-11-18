@@ -448,15 +448,43 @@ export default {
       
       this.$set(this.streamLoading, cameraId, true)
       try {
+        console.log('启动推流请求:', {
+          vehicleId: this.currentVehicle.vehicleId,
+          cameraId: cameraId
+        })
+        
         const response = await startCameraStream(this.currentVehicle.vehicleId, cameraId)
-        if (response.code === 0) {
-          this.$message.success('开始推流成功')
-          await this.loadVehicleCameras(this.currentVehicle.vehicleId)
+        console.log('启动推流响应:', response) // 调试日志
+        console.log('响应类型:', typeof response)
+        console.log('响应内容:', JSON.stringify(response, null, 2))
+        
+        if (response && typeof response === 'object' && 'code' in response) {
+          if (response.code === 0) {
+            this.$message.success('开始推流成功')
+            await this.loadVehicleCameras(this.currentVehicle.vehicleId)
+          } else {
+            this.$message.error('开始推流失败: ' + (response.msg || '错误代码: ' + response.code))
+          }
         } else {
-          this.$message.error('开始推流失败: ' + response.msg)
+          console.error('响应格式异常:', response)
+          this.$message.error('开始推流失败: 服务器响应格式异常')
         }
       } catch (error) {
-        this.$message.error('开始推流异常: ' + error.message)
+        console.error('启动推流异常详细信息:', {
+          error: error,
+          message: error.message,
+          stack: error.stack,
+          response: error.response
+        })
+        
+        let errorMessage = '开始推流异常'
+        if (error.response && error.response.data) {
+          errorMessage += ': ' + (error.response.data.msg || error.response.data.message || '服务器错误')
+        } else if (error.message) {
+          errorMessage += ': ' + error.message
+        }
+        
+        this.$message.error(errorMessage)
       } finally {
         this.$set(this.streamLoading, cameraId, false)
       }
@@ -468,14 +496,19 @@ export default {
       this.$set(this.streamLoading, cameraId, true)
       try {
         const response = await stopCameraStream(this.currentVehicle.vehicleId, cameraId)
-        if (response.code === 0) {
+        console.log('停止推流响应:', response) // 调试日志
+        
+        if (response && response.code === 0) {
           this.$message.success('停止推流成功')
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
+        } else if (response && response.code !== 0) {
+          this.$message.error('停止推流失败: ' + (response.msg || '未知错误'))
         } else {
-          this.$message.error('停止推流失败: ' + response.msg)
+          this.$message.error('停止推流失败: 服务器响应异常')
         }
       } catch (error) {
-        this.$message.error('停止推流异常: ' + error.message)
+        console.error('停止推流异常:', error) // 调试日志
+        this.$message.error('停止推流异常: ' + (error.message || error.toString()))
       } finally {
         this.$set(this.streamLoading, cameraId, false)
       }

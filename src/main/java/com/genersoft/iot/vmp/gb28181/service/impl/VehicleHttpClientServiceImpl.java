@@ -27,35 +27,62 @@ public class VehicleHttpClientServiceImpl implements IVehicleHttpClientService {
 
     @Override
     public boolean subscribeCameras(String vehicleIpAddress, Integer port, List<String> cameraIds, String apiKey) {
+        log.info("[车辆API调用-订阅] 开始处理订阅请求: vehicleIp={}, port={}, cameraIds={}", 
+                vehicleIpAddress, port, cameraIds);
+        
         if (!StringUtils.hasText(vehicleIpAddress) || cameraIds == null || cameraIds.isEmpty()) {
-            log.warn("[车辆API调用] 参数无效: vehicleIpAddress={}, cameraIds={}", vehicleIpAddress, cameraIds);
+            log.error("[车辆API调用-订阅] 参数验证失败: vehicleIpAddress={}, cameraIds={}", vehicleIpAddress, cameraIds);
             return false;
         }
 
         try {
             String url = buildApiUrl(vehicleIpAddress, port, "/api/camera/subscribe");
+            log.info("[车辆API调用-订阅] 构建请求URL: {}", url);
             
             HttpHeaders headers = buildHeaders(apiKey);
+            log.info("[车辆API调用-订阅] 构建请求头: {}", headers);
             
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("camera_ids", cameraIds);
+            log.info("[车辆API调用-订阅] 构建请求体: {}", requestBody);
             
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+            
+            log.info("[车辆API调用-订阅] 发送HTTP请求:");
+            log.info("  - Method: POST");
+            log.info("  - URL: {}", url);
+            log.info("  - Headers: {}", headers);
+            log.info("  - Body: {}", requestBody);
+            log.info("  - Timeout: {} seconds", TIMEOUT_SECONDS);
             
             ResponseEntity<Map> response = vehicleRestTemplate.exchange(
                 url, HttpMethod.POST, request, Map.class
             );
             
+            log.info("[车辆API调用-订阅] 收到HTTP响应:");
+            log.info("  - Status Code: {}", response.getStatusCode());
+            log.info("  - Headers: {}", response.getHeaders());
+            log.info("  - Body: {}", response.getBody());
+            
             boolean success = response.getStatusCode().is2xxSuccessful();
             if (success) {
-                log.info("[车辆API调用] 订阅相机成功: vehicle={}, cameras={}", vehicleIpAddress, cameraIds);
+                log.info("[车辆API调用-订阅] 订阅相机成功: vehicle={}:{}, cameras={}, response={}", 
+                        vehicleIpAddress, port, cameraIds, response.getBody());
             } else {
-                log.warn("[车辆API调用] 订阅相机失败: vehicle={}, status={}", vehicleIpAddress, response.getStatusCode());
+                log.error("[车辆API调用-订阅] 订阅相机失败: vehicle={}:{}, status={}, response={}", 
+                         vehicleIpAddress, port, response.getStatusCode(), response.getBody());
             }
             
             return success;
         } catch (Exception e) {
-            log.error("[车辆API调用] 订阅相机异常: vehicle={}, cameras={}", vehicleIpAddress, cameraIds, e);
+            log.error("[车辆API调用-订阅] HTTP请求异常: vehicle={}:{}, cameras={}", 
+                     vehicleIpAddress, port, cameraIds, e);
+            log.error("[车辆API调用-订阅] 异常详细信息: type={}, message={}", 
+                     e.getClass().getSimpleName(), e.getMessage());
+            if (e.getCause() != null) {
+                log.error("[车辆API调用-订阅] 根本原因: type={}, message={}", 
+                         e.getCause().getClass().getSimpleName(), e.getCause().getMessage());
+            }
             return false;
         }
     }
@@ -162,7 +189,10 @@ public class VehicleHttpClientServiceImpl implements IVehicleHttpClientService {
      */
     private String buildApiUrl(String vehicleIpAddress, Integer port, String path) {
         int actualPort = port != null ? port : DEFAULT_PORT;
-        return String.format("http://%s:%d%s", vehicleIpAddress, actualPort, path);
+        String url = String.format("http://%s:%d%s", vehicleIpAddress, actualPort, path);
+        log.debug("[构建API URL] vehicleIp={}, port={}, path={}, actualPort={}, finalUrl={}", 
+                 vehicleIpAddress, port, path, actualPort, url);
+        return url;
     }
 
     /**
@@ -174,8 +204,12 @@ public class VehicleHttpClientServiceImpl implements IVehicleHttpClientService {
         
         if (StringUtils.hasText(apiKey)) {
             headers.set("access-token", apiKey);
+            log.debug("[构建请求头] 已设置API密钥");
+        } else {
+            log.debug("[构建请求头] 未设置API密钥");
         }
         
+        log.debug("[构建请求头] Content-Type={}, Headers={}", MediaType.APPLICATION_JSON, headers);
         return headers;
     }
 
