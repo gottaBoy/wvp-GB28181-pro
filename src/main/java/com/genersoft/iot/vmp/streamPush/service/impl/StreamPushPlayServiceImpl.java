@@ -82,7 +82,13 @@ public class StreamPushPlayServiceImpl implements IStreamPushPlayService {
         }
         Assert.isTrue(streamPush.isStartOfflinePush(), "通道未推流");
         // 发送redis消息以使设备上线，流上线后被
-        log.info("[ app={}, stream={} ]通道未推流，发送redis信息控制设备开始推流", streamPush.getApp(), streamPush.getStream());
+        if (streamPush.getGbDeviceId() != null && !streamPush.getGbDeviceId().isEmpty()) {
+            log.info("[ app={}, stream={}, gbDeviceId={} ] 通道未推流，发送redis信息通知关联的GB28181设备开始推流", 
+                    streamPush.getApp(), streamPush.getStream(), streamPush.getGbDeviceId());
+        } else {
+            log.info("[ app={}, stream={} ] 通道未推流，发送redis信息控制设备开始推流", 
+                    streamPush.getApp(), streamPush.getStream());
+        }
         MessageForPushChannel messageForPushChannel = MessageForPushChannel.getInstance(1,
                 streamPush.getApp(), streamPush.getStream(), streamPush.getGbDeviceId(), platformDeviceId,
                 platformName, userSetting.getServerId(), null);
@@ -91,7 +97,12 @@ public class StreamPushPlayServiceImpl implements IStreamPushPlayService {
         String timeOutTaskKey = UUID.randomUUID().toString();
         dynamicTask.startDelay(timeOutTaskKey, () -> {
             redisRpcService.unPushStreamOnlineEvent(streamPush.getApp(), streamPush.getStream());
-            log.info("[ app={}, stream={} ] 等待设备开始推流超时", streamPush.getApp(), streamPush.getStream());
+            if (streamPush.getGbDeviceId() != null && !streamPush.getGbDeviceId().isEmpty()) {
+                log.warn("[ app={}, stream={}, gbDeviceId={} ] 等待推流超时，关联的GB28181设备可能不存在或未响应", 
+                        streamPush.getApp(), streamPush.getStream(), streamPush.getGbDeviceId());
+            } else {
+                log.info("[ app={}, stream={} ] 等待设备开始推流超时", streamPush.getApp(), streamPush.getStream());
+            }
             callback.run(ErrorCode.ERROR100.getCode(), "timeout", null);
 
         }, userSetting.getPlatformPlayTimeout());

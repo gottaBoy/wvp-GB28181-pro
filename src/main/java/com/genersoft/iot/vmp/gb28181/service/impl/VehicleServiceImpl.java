@@ -15,6 +15,7 @@ import com.genersoft.iot.vmp.media.bean.MediaServer;
 import com.genersoft.iot.vmp.media.service.IMediaServerService;
 import com.genersoft.iot.vmp.media.bean.MediaInfo;
 import com.genersoft.iot.vmp.streamPush.bean.StreamPush;
+import com.genersoft.iot.vmp.streamPush.dao.StreamPushMapper;
 import com.genersoft.iot.vmp.streamPush.service.IStreamPushPlayService;
 import com.genersoft.iot.vmp.streamPush.service.IStreamPushService;
 import com.genersoft.iot.vmp.utils.DateUtil;
@@ -49,6 +50,9 @@ public class VehicleServiceImpl implements IVehicleService {
 
     @Autowired
     private IStreamPushPlayService streamPushPlayService;
+
+    @Autowired
+    private StreamPushMapper streamPushMapper;
 
     @Autowired
     private IMediaServerService mediaServerService;
@@ -488,14 +492,27 @@ public class VehicleServiceImpl implements IVehicleService {
         }
 
         try {
-            // 调用推流服务停止推流（使用app+stream，不依赖stream_push_id）
-            streamPushPlayService.stop(vehicleId, cameraId);
+            // 无论pushing状态如何，都尝试停止流媒体连接
+            // 查询streamPush记录
+            StreamPush streamPush = streamPushMapper.selectByAppAndStream(vehicleId, cameraId);
+            if (streamPush != null) {
+                String mediaServerId = streamPush.getMediaServerId();
+                MediaServer mediaServer = mediaServerService.getOne(mediaServerId);
+                if (mediaServer != null) {
+                    log.info("[停止推流] 关闭流媒体连接: vehicleId={}, cameraId={}, mediaServerId={}", 
+                             vehicleId, cameraId, mediaServerId);
+                    mediaServerService.closeStreams(mediaServer, vehicleId, cameraId);
+                } else {
+                    log.warn("[停止推流] 未找到流媒体服务器: mediaServerId={}", mediaServerId);
+                }
+            } else {
+                log.warn("[停止推流] 未找到推流记录: vehicleId={}, cameraId={}", vehicleId, cameraId);
+            }
             
-            // 注意：推流停止是异步的，实际状态会通过MediaDepartureEvent事件监听自动更新
-            // 这里先更新状态，如果推流服务失败，事件监听会再次更新
+            // 更新数据库状态
             String currentTime = DateUtil.getNow();
             vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, false, "inactive", null, currentTime);
-            log.info("[停止推流] 已发送停止指令: vehicleId={}, cameraId={}", vehicleId, cameraId);
+            log.info("[停止推流] 已停止推流并更新状态: vehicleId={}, cameraId={}", vehicleId, cameraId);
             return true;
         } catch (Exception e) {
             log.error("[停止推流] 异常: vehicleId={}, cameraId={}", vehicleId, cameraId, e);

@@ -68,7 +68,7 @@
 <script>
 
 import elDragDialog from '@/directive/el-drag-dialog'
-import crypto from "crypto";
+import md5 from 'js-md5'
 
 
 export default {
@@ -91,13 +91,12 @@ export default {
       if (!this.pushKey) {
         return ''
       }
-      return crypto.createHash('md5').update(this.pushKey, 'utf8').digest('hex')
+      return md5(this.pushKey)
     },
     rtsp(){
       if (!this.mediaServer || !this.stream || !this.app) {
         return ''
       }
-      crypto.createHash('md5').update(this.pushKey, 'utf8').digest('hex')
       return `rtsp://${this.mediaServer.streamIp}:${this.mediaServer.rtspPort}/${this.app}/${this.stream}?sign=${this.sign}`
     },
     rtmp(){
@@ -123,9 +122,29 @@ export default {
     this.initData()
   },
   methods: {
-    openDialog: function(callback) {
-      this.endCallback = callback
+    openDialog: function(app, stream, mediaServerId) {
       this.showDialog = true
+      
+      // 每次打开都重新加载数据
+      this.initData().then(() => {
+        // 如果传入了应用名和流ID，自动填充
+        if (app) {
+          this.app = app
+        }
+        if (stream) {
+          this.stream = stream
+        }
+        
+        // 如果传入了媒体服务器ID，自动选中
+        if (mediaServerId) {
+          this.$nextTick(() => {
+            const media = this.mediaServerList.find(m => m.id === mediaServerId)
+            if (media) {
+              this.mediaServer = media
+            }
+          })
+        }
+      })
     },
     close: function() {
       this.showDialog = false
@@ -133,15 +152,19 @@ export default {
       this.stream = null
       this.mediaServer = null
       this.endCallback = null
-      this.mediaServerList = []
+      // 不清空 mediaServerList 和 pushKey，保持数据
     },
     initData: function() {
       this.loading = true
-      this.$store.dispatch('server/getMediaServerList').then(data => {
-        this.mediaServerList = data
-      })
-      this.$store.dispatch('user/getUserInfo').then(data => {
-        this.pushKey = data.pushKey
+      return Promise.all([
+        this.$store.dispatch('server/getMediaServerList').then(data => {
+          this.mediaServerList = data
+        }),
+        this.$store.dispatch('user/getUserInfo').then(data => {
+          this.pushKey = data.pushKey
+        })
+      ]).finally(() => {
+        this.loading = false
       })
     },
     copyUrl: function(dropdownItem) {

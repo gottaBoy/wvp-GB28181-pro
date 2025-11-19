@@ -67,13 +67,17 @@
       </el-table-column>
       <el-table-column label="操作" min-width="280" fixed="right">
         <template v-slot:default="scope">
-          <el-button
-            type="text"
-            size="small"
-            icon="el-icon-view"
-            @click="showDetail(scope.row)"
-          >详情</el-button>
-          
+          <a 
+            :href="getDetailUrl(scope.row.vehicleId)"
+            target="_blank"
+            style="text-decoration: none;">
+            <el-button
+              type="text"
+              size="small"
+              icon="el-icon-view"
+            >详情</el-button>
+          </a>
+          &nbsp;&nbsp;
           <el-button
             type="text"
             size="small"
@@ -81,7 +85,7 @@
             :loading="connectionChecking[scope.row.vehicleId]"
             @click="checkConnection(scope.row)"
           >连接测试</el-button>
-          
+          &nbsp;&nbsp;
           <el-dropdown @command="handleBatchCommand">
             <el-button type="text" size="small">
               批量操作<i class="el-icon-arrow-down el-icon--right"></i>
@@ -98,21 +102,6 @@
         </template>
       </el-table-column>
     </el-table>
-    
-    <!-- 车辆详情对话框 -->
-    <el-dialog
-      title="车辆详情"
-      :visible.sync="detailDialogVisible"
-      width="90%"
-      :before-close="handleCloseDetail"
-      :close-on-click-modal="false"
-    >
-      <vehicle-detail
-        v-if="detailDialogVisible"
-        :vehicle-id="selectedVehicleId"
-        @close="detailDialogVisible = false"
-      />
-    </el-dialog>
   </div>
 </template>
 
@@ -124,21 +113,15 @@ import {
   unsubscribeVehicleCameras,
   getVehicleCameras
 } from '@/api/vehicle'
-import VehicleDetail from './detail.vue'
 
 export default {
   name: 'VehicleList',
-  components: {
-    VehicleDetail
-  },
   data() {
     return {
       vehicleList: [],
       loading: false,
       searchStr: '',
       statusFilter: '',
-      detailDialogVisible: false,
-      selectedVehicleId: '',
       connectionChecking: {}
     }
   },
@@ -189,13 +172,21 @@ export default {
       if (!cameras || cameras.length === 0) return 0
       return cameras.filter(c => c.pushing === true).length
     },
-    showDetail(row) {
-      this.selectedVehicleId = row.vehicleId
-      this.detailDialogVisible = true
+    getDetailUrl(vehicleId) {
+      // 构建详情页面URL
+      const routeData = this.$router.resolve({
+        name: 'VehicleDetail',
+        query: { vehicleId: vehicleId }
+      })
+      return routeData.href
     },
-    handleCloseDetail() {
-      this.detailDialogVisible = false
-      this.selectedVehicleId = ''
+    openDetailTab(row) {
+      // 在新标签页中打开车辆详情（备用方法）
+      const routeUrl = this.$router.resolve({
+        name: 'VehicleDetail',
+        query: { vehicleId: row.vehicleId }
+      })
+      window.open(routeUrl.href, '_blank')
     },
     
     async checkConnection(vehicle) {

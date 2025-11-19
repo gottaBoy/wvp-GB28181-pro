@@ -54,18 +54,17 @@ export const constantRoutes = [
       meta: { title: '控制台', icon: 'dashboard', affix: true }
     }]
   },
-
-  {
-    path: '/live',
-    component: Layout,
-    redirect: '/live',
-    children: [{
-      path: '',
-      name: 'Live',
-      component: () => import('@/views/live/index'),
-      meta: { title: '分屏监控', icon: 'live' }
-    }]
-  },
+  // {
+  //   path: '/live',
+  //   component: Layout,
+  //   redirect: '/live',
+  //   children: [{
+  //     path: '',
+  //     name: 'Live',
+  //     component: () => import('@/views/live/index'),
+  //     meta: { title: '分屏监控', icon: 'live' }
+  //   }]
+  // },
   // {
   //   path: '/channel',
   //   component: Layout,
@@ -136,10 +135,23 @@ export const constantRoutes = [
         meta: { title: '车辆管理', icon: 'devices' }
       },
       {
+        path: '/vehicle/detail',
+        name: 'VehicleDetail',
+        component: () => import('@/views/vehicle/detail'),
+        meta: { title: '车辆详情', icon: 'info' },
+        hidden: true
+      },
+      {
         path: '/vehicle/monitor',
         name: 'VehicleMonitor',
         component: () => import('@/views/vehicle/VehicleCameraMonitor'),
         meta: { title: '车辆监控', icon: 'live' }
+      },
+      {
+        path: '/vehicle/logs',
+        name: 'VehicleLogs',
+        component: () => import('@/views/vehicle/LogViewer'),
+        meta: { title: '日志查看器', icon: 'el-icon-document' }
       }
     ]
   },

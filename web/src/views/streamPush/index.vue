@@ -65,7 +65,12 @@
             @click="batchDel"
           >移除
           </el-button>
-          <el-button icon="el-icon-chicken" @click="buildPushStream">生成推流地址</el-button>
+          <el-button 
+            icon="el-icon-chicken" 
+            :disabled="multipleSelection.length !== 1"
+            @click="buildPushStream">
+            生成推流地址
+          </el-button>
         </el-form-item>
         <el-form-item style="float: right;">
           <el-button icon="el-icon-refresh-right" circle @click="refresh()" />
@@ -295,7 +300,13 @@ export default {
       this.initData()
     },
     buildPushStream: function() {
-      this.$refs.buildPushStreamUrl.openDialog()
+      // 如果选中了一条记录，自动填入应用名和流ID
+      if (this.multipleSelection.length === 1) {
+        const selected = this.multipleSelection[0]
+        this.$refs.buildPushStreamUrl.openDialog(selected.app, selected.stream, selected.mediaServerId)
+      } else {
+        this.$refs.buildPushStreamUrl.openDialog()
+      }
     }
   }
 }

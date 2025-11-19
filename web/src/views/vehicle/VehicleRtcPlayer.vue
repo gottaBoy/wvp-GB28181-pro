@@ -1,11 +1,11 @@
 <template>
-  <div class="vehicle-rtc-player" style="width: 100%; height: 100%; position: relative;">
+  <div class="vehicle-rtc-player">
     <video 
       :ref="playerId"
       controls 
       autoplay 
       playsinline
-      style="width: 100%; height: 100%; object-fit: contain; background-color: #000;">
+      class="video-element">
       Your browser is too old which doesn't support HTML5 video.
     </video>
   </div>
@@ -152,12 +152,16 @@ export default {
   position: relative;
   overflow: hidden;
   background-color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-video {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
+.video-element {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 改为 cover 以填充满容器 */
   background-color: #000;
+  display: block;
 }
 </style>

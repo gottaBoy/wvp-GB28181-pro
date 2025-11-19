@@ -301,13 +301,17 @@ export default {
       this.loading = true
       try {
         const response = await getAllVehicles()
+        if (!response) {
+          this.$message.error('获取车辆列表失败: 未收到响应')
+          return
+        }
         if (response.code === 200) {
           this.vehicles = response.data || []
         } else {
-          this.$message.error('获取车辆列表失败: ' + response.msg)
+          this.$message.error('获取车辆列表失败: ' + (response.msg || '未知错误'))
         }
       } catch (error) {
-        this.$message.error('获取车辆列表异常: ' + error.message)
+        this.$message.error('获取车辆列表异常: ' + (error.message || '未知错误'))
       } finally {
         this.loading = false
       }
@@ -323,13 +327,17 @@ export default {
       this.camerasLoading = true
       try {
         const response = await getVehicleCameras(vehicleId)
+        if (!response) {
+          this.$message.error('获取相机列表失败: 未收到响应')
+          return
+        }
         if (response.code === 200) {
           this.vehicleCameras = response.data || []
         } else {
-          this.$message.error('获取相机列表失败: ' + response.msg)
+          this.$message.error('获取相机列表失败: ' + (response.msg || '未知错误'))
         }
       } catch (error) {
-        this.$message.error('获取相机列表异常: ' + error.message)
+        this.$message.error('获取相机列表异常: ' + (error.message || '未知错误'))
       } finally {
         this.camerasLoading = false
       }
@@ -339,6 +347,10 @@ export default {
       this.$set(this.connectionChecking, vehicle.vehicleId, true)
       try {
         const response = await checkVehicleConnection(vehicle.vehicleId)
+        if (!response) {
+          this.$message.error('连接检查失败: 未收到响应')
+          return
+        }
         if (response.code === 200) {
           const connected = response.data
           this.$message({
@@ -346,10 +358,10 @@ export default {
             message: `车辆 ${vehicle.vehicleId} ${connected ? '连接正常' : '连接异常'}`
           })
         } else {
-          this.$message.error('连接检查失败: ' + response.msg)
+          this.$message.error('连接检查失败: ' + (response.msg || '未知错误'))
         }
       } catch (error) {
-        this.$message.error('连接检查异常: ' + error.message)
+        this.$message.error('连接检查异常: ' + (error.message || '未知错误'))
       } finally {
         this.$set(this.connectionChecking, vehicle.vehicleId, false)
       }
@@ -361,14 +373,18 @@ export default {
       this.$set(this.operationLoading, cameraId, true)
       try {
         const response = await subscribeVehicleCameras(this.currentVehicle.vehicleId, [cameraId])
+        if (!response) {
+          this.$message.error('订阅失败: 未收到响应')
+          return
+        }
         if (response.code === 200) {
           this.$message.success('订阅成功')
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
-          this.$message.error('订阅失败: ' + response.msg)
+          this.$message.error('订阅失败: ' + (response.msg || '未知错误'))
         }
       } catch (error) {
-        this.$message.error('订阅异常: ' + error.message)
+        this.$message.error('订阅异常: ' + (error.message || '未知错误'))
       } finally {
         this.$set(this.operationLoading, cameraId, false)
       }
@@ -380,14 +396,18 @@ export default {
       this.$set(this.operationLoading, cameraId, true)
       try {
         const response = await unsubscribeVehicleCameras(this.currentVehicle.vehicleId, [cameraId])
+        if (!response) {
+          this.$message.error('取消订阅失败: 未收到响应')
+          return
+        }
         if (response.code === 200) {
           this.$message.success('取消订阅成功')
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
-          this.$message.error('取消订阅失败: ' + response.msg)
+          this.$message.error('取消订阅失败: ' + (response.msg || '未知错误'))
         }
       } catch (error) {
-        this.$message.error('取消订阅异常: ' + error.message)
+        this.$message.error('取消订阅异常: ' + (error.message || '未知错误'))
       } finally {
         this.$set(this.operationLoading, cameraId, false)
       }
@@ -407,14 +427,18 @@ export default {
 
       try {
         const response = await subscribeVehicleCameras(this.currentVehicle.vehicleId, inactiveCameras)
+        if (!response) {
+          this.$message.error('批量订阅失败: 未收到响应')
+          return
+        }
         if (response.code === 200) {
           this.$message.success(`批量订阅成功 (${inactiveCameras.length} 个相机)`)
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
-          this.$message.error('批量订阅失败: ' + response.msg)
+          this.$message.error('批量订阅失败: ' + (response.msg || '未知错误'))
         }
       } catch (error) {
-        this.$message.error('批量订阅异常: ' + error.message)
+        this.$message.error('批量订阅异常: ' + (error.message || '未知错误'))
       }
     },
 
@@ -432,14 +456,18 @@ export default {
 
       try {
         const response = await unsubscribeVehicleCameras(this.currentVehicle.vehicleId, activeCameras)
+        if (!response) {
+          this.$message.error('批量取消订阅失败: 未收到响应')
+          return
+        }
         if (response.code === 200) {
           this.$message.success(`批量取消订阅成功 (${activeCameras.length} 个相机)`)
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
-          this.$message.error('批量取消订阅失败: ' + response.msg)
+          this.$message.error('批量取消订阅失败: ' + (response.msg || '未知错误'))
         }
       } catch (error) {
-        this.$message.error('批量取消订阅异常: ' + error.message)
+        this.$message.error('批量取消订阅异常: ' + (error.message || '未知错误'))
       }
     },
 
@@ -528,14 +556,18 @@ export default {
       this.$set(this.directLoading, cameraId, true)
       try {
         const response = await directStartCameraStream(this.currentVehicle.vehicleId, cameraId)
+        if (!response) {
+          this.$message.error('直接启动推流失败: 未收到响应')
+          return
+        }
         if (response.code === 200) {
           this.$message.success(`直接启动推流成功 - 相机: ${cameraId}`)
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
-          this.$message.error('直接启动推流失败: ' + response.msg)
+          this.$message.error('直接启动推流失败: ' + (response.msg || '未知错误'))
         }
       } catch (error) {
-        this.$message.error('直接启动推流异常: ' + error.message)
+        this.$message.error('直接启动推流异常: ' + (error.message || '未知错误'))
       } finally {
         this.$set(this.directLoading, cameraId, false)
       }
@@ -547,14 +579,18 @@ export default {
       this.$set(this.directLoading, cameraId, true)
       try {
         const response = await directStopCameraStream(this.currentVehicle.vehicleId, cameraId)
+        if (!response) {
+          this.$message.error('直接停止推流失败: 未收到响应')
+          return
+        }
         if (response.code === 200) {
           this.$message.success(`直接停止推流成功 - 相机: ${cameraId}`)
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
-          this.$message.error('直接停止推流失败: ' + response.msg)
+          this.$message.error('直接停止推流失败: ' + (response.msg || '未知错误'))
         }
       } catch (error) {
-        this.$message.error('直接停止推流异常: ' + error.message)
+        this.$message.error('直接停止推流异常: ' + (error.message || '未知错误'))
       } finally {
         this.$set(this.directLoading, cameraId, false)
       }
@@ -583,6 +619,10 @@ export default {
       
       try {
         const response = await getVehicleCameraWebRTCUrl(this.currentVehicle.vehicleId, cameraId)
+        if (!response) {
+          this.$message.error('获取播放链接失败: 未收到响应')
+          return
+        }
         if (response.code === 200 && response.data) {
           this.playUrl = response.data
           this.playDialogVisible = true
@@ -591,8 +631,8 @@ export default {
           this.$message.error('获取播放链接失败: ' + (response.msg || '未知错误'))
         }
       } catch (error) {
-        this.$message.error('获取播放链接异常: ' + error.message)
-        this.playError = error.message
+        this.$message.error('获取播放链接异常: ' + (error.message || '未知错误'))
+        this.playError = error.message || '未知错误'
       } finally {
         this.$set(this.playLoading, cameraId, false)
       }

@@ -234,7 +234,8 @@ public class VehicleController {
         }
 
 //        try {
-//             boolean success = vehicleService.startCameraStream(vehicleId, cameraId);
+//            boolean success = vehicleService.startCameraStream(vehicleId, cameraId);
+//            if (success) {
 //                return WVPResult.<Void>success(null);
 //            } else {
 //                return WVPResult.fail(ErrorCode.ERROR100.getCode(), "启动推流失败");
