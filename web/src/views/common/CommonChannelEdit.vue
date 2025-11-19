@@ -297,7 +297,7 @@ export default {
             id: this.form.gbId
           }
         }).then((res) => {
-          if (res.data.code === 0) {
+          if (res.data.code === 200) {
             this.$message.success({
               showClose: true,
               message: '重置成功 已保存'

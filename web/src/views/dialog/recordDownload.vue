@@ -97,7 +97,7 @@ export default {
       //   method: 'get',
       //   url: `/api/gb_record/download/progress/${this.deviceId}/${this.channelId}/${this.stream}`
       // }).then((res) => {
-      //   if (res.data.code === 0) {
+      //   if (res.data.code === 200) {
       //     this.streamInfo = res.data.data
       //     if (parseFloat(res.data.progress) === 1) {
       //       this.percentage = 100

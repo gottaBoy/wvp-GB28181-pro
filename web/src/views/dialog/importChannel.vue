@@ -66,7 +66,7 @@ export default {
       this.showDialog = false
     },
     successHook: function(response, file, fileList) {
-      if (response.code === 0) {
+      if (response.code === 200) {
         this.$message({
           showClose: true,
           message: response.msg,

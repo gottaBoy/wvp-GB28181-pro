@@ -83,7 +83,7 @@ export default {
       }).then((res) => {
         this.isLoging = false
         if (typeof this.callback === 'function') {
-          if (res.data.code == 0) {
+          if (res.data.code == 200) {
             this.callback(res.data.data)
             this.close()
           } else {

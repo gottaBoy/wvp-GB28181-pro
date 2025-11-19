@@ -266,7 +266,7 @@ public class StreamPushController {
             result.setResult(fail);
         });
         streamPushPlayService.start(id, (code, msg, streamInfo) -> {
-            if (code == 0 && streamInfo != null) {
+            if (code == 200 && streamInfo != null) {
                 if (userSetting.getUseSourceIpAsStreamIp()) {
                     streamInfo=streamInfo.clone();//深拷贝
                     String host;

@@ -25,6 +25,12 @@
         </el-select>
       </el-form-item>
       <el-form-item style="float: right;">
+        <el-button 
+          type="success"
+          icon="el-icon-video-camera"
+          @click="goToMonitor">
+          车辆监控
+        </el-button>
         <el-button
           icon="el-icon-refresh-right"
           circle
@@ -41,7 +47,7 @@
       header-row-class-name="table-header"
       :loading="loading"
     >
-      <el-table-column prop="vehicleId" label="编码" min-width="150" />
+      <el-table-column prop="vehicleId" label="车辆ID" min-width="150" />
       <el-table-column prop="ipAddress" label="IP" min-width="140" />
       <el-table-column label="状态" min-width="100">
         <template v-slot:default="scope">
@@ -159,10 +165,13 @@ export default {
     this.refresh()
   },
   methods: {
+    goToMonitor() {
+      this.$router.push('/vehicle/monitor')
+    },
     refresh() {
       this.loading = true
       getAllVehicles().then(response => {
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.vehicleList = response.data || []
         } else {
           this.$message.error('获取车辆列表失败: ' + response.msg)
@@ -193,7 +202,7 @@ export default {
       this.$set(this.connectionChecking, vehicle.vehicleId, true)
       try {
         const response = await checkVehicleConnection(vehicle.vehicleId)
-        if (response.code === 0) {
+        if (response.code === 200) {
           const connected = response.data
           this.$message({
             type: connected ? 'success' : 'warning',
@@ -215,7 +224,7 @@ export default {
       try {
         // 先获取车辆的相机列表
         const cameraResponse = await getVehicleCameras(vehicle.vehicleId)
-        if (cameraResponse.code !== 0) {
+        if (cameraResponse.code !== 200) {
           this.$message.error('获取相机列表失败: ' + cameraResponse.msg)
           return
         }
@@ -230,7 +239,7 @@ export default {
         
         if (action === 'batchSubscribe') {
           const response = await subscribeVehicleCameras(vehicle.vehicleId, cameraIds)
-          if (response.code === 0) {
+          if (response.code === 200) {
             this.$message.success(`批量订阅成功 (${cameraIds.length} 个相机)`)
             this.refresh() // 刷新列表
           } else {
@@ -238,7 +247,7 @@ export default {
           }
         } else if (action === 'batchUnsubscribe') {
           const response = await unsubscribeVehicleCameras(vehicle.vehicleId, cameraIds)
-          if (response.code === 0) {
+          if (response.code === 200) {
             this.$message.success(`批量取消订阅成功 (${cameraIds.length} 个相机)`)
             this.refresh() // 刷新列表
           } else {

@@ -301,7 +301,7 @@ export default {
       this.loading = true
       try {
         const response = await getAllVehicles()
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.vehicles = response.data || []
         } else {
           this.$message.error('获取车辆列表失败: ' + response.msg)
@@ -323,7 +323,7 @@ export default {
       this.camerasLoading = true
       try {
         const response = await getVehicleCameras(vehicleId)
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.vehicleCameras = response.data || []
         } else {
           this.$message.error('获取相机列表失败: ' + response.msg)
@@ -339,7 +339,7 @@ export default {
       this.$set(this.connectionChecking, vehicle.vehicleId, true)
       try {
         const response = await checkVehicleConnection(vehicle.vehicleId)
-        if (response.code === 0) {
+        if (response.code === 200) {
           const connected = response.data
           this.$message({
             type: connected ? 'success' : 'warning',
@@ -361,7 +361,7 @@ export default {
       this.$set(this.operationLoading, cameraId, true)
       try {
         const response = await subscribeVehicleCameras(this.currentVehicle.vehicleId, [cameraId])
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.$message.success('订阅成功')
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
@@ -380,7 +380,7 @@ export default {
       this.$set(this.operationLoading, cameraId, true)
       try {
         const response = await unsubscribeVehicleCameras(this.currentVehicle.vehicleId, [cameraId])
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.$message.success('取消订阅成功')
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
@@ -407,7 +407,7 @@ export default {
 
       try {
         const response = await subscribeVehicleCameras(this.currentVehicle.vehicleId, inactiveCameras)
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.$message.success(`批量订阅成功 (${inactiveCameras.length} 个相机)`)
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
@@ -432,7 +432,7 @@ export default {
 
       try {
         const response = await unsubscribeVehicleCameras(this.currentVehicle.vehicleId, activeCameras)
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.$message.success(`批量取消订阅成功 (${activeCameras.length} 个相机)`)
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
@@ -459,7 +459,7 @@ export default {
         console.log('响应内容:', JSON.stringify(response, null, 2))
         
         if (response && typeof response === 'object' && 'code' in response) {
-          if (response.code === 0) {
+          if (response.code === 200) {
             this.$message.success('开始推流成功')
             await this.loadVehicleCameras(this.currentVehicle.vehicleId)
           } else {
@@ -498,10 +498,10 @@ export default {
         const response = await stopCameraStream(this.currentVehicle.vehicleId, cameraId)
         console.log('停止推流响应:', response) // 调试日志
         
-        if (response && response.code === 0) {
+        if (response && response.code === 200) {
           this.$message.success('停止推流成功')
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
-        } else if (response && response.code !== 0) {
+        } else if (response && response.code !== 200) {
           this.$message.error('停止推流失败: ' + (response.msg || '未知错误'))
         } else {
           this.$message.error('停止推流失败: 服务器响应异常')
@@ -528,7 +528,7 @@ export default {
       this.$set(this.directLoading, cameraId, true)
       try {
         const response = await directStartCameraStream(this.currentVehicle.vehicleId, cameraId)
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.$message.success(`直接启动推流成功 - 相机: ${cameraId}`)
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
@@ -547,7 +547,7 @@ export default {
       this.$set(this.directLoading, cameraId, true)
       try {
         const response = await directStopCameraStream(this.currentVehicle.vehicleId, cameraId)
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.$message.success(`直接停止推流成功 - 相机: ${cameraId}`)
           await this.loadVehicleCameras(this.currentVehicle.vehicleId)
         } else {
@@ -583,7 +583,7 @@ export default {
       
       try {
         const response = await getVehicleCameraWebRTCUrl(this.currentVehicle.vehicleId, cameraId)
-        if (response.code === 0 && response.data) {
+        if (response.code === 200 && response.data) {
           this.playUrl = response.data
           this.playDialogVisible = true
           this.$message.success('正在启动WebRTC播放器...')
@@ -604,7 +604,7 @@ export default {
       this.playError = ''
       this.currentPlayingCamera = null
       
-      // 确保播放器正确清理
+      // 确保播放器正确清理资源
       if (this.$refs.rtcPlayer) {
         this.$refs.rtcPlayer.pause()
       }

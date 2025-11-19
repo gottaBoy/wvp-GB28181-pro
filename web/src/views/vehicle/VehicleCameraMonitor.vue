@@ -45,15 +45,15 @@
             </div>
           </div>
 
-          <!-- 空状态 -->
+          <!-- 空状态-->
           <el-empty 
             v-if="!vehicleLoading && vehicles.length === 0"
             description="暂无车辆数据"
-            image-size="80">
+            :image-size="80">
           </el-empty>
         </el-card>
       </el-aside>
-
+      
       <!-- 右侧相机列表和播放区域 -->
       <el-main class="right-panel">
         <!-- 工具栏 -->
@@ -78,7 +78,7 @@
               <el-button 
                 type="warning"
                 icon="el-icon-video-pause"
-                :disabled="playingCameras.size === 0"
+                :disabled="Object.keys(playingCameras).length === 0"
                 @click="batchStopCameras">
                 停止全部
               </el-button>
@@ -99,7 +99,7 @@
                 <el-dropdown-item command="selectAll">全选相机</el-dropdown-item>
                 <el-dropdown-item command="selectNone">取消全选</el-dropdown-item>
                 <el-dropdown-item command="selectActive" divided>选择活跃相机</el-dropdown-item>
-                <el-dropdown-item command="selectStreaming">选择推流中</el-dropdown-item>
+                <el-dropdown-item command="selectStreaming">选择推流相机</el-dropdown-item>
               </el-dropdown-menu>
             </el-dropdown>
           </div>
@@ -170,7 +170,7 @@
             <el-table-column label="播放状态" width="100" align="center">
               <template #default="scope">
                 <el-tag 
-                  v-if="playingCameras.has(scope.row.cameraId)"
+                  v-if="playingCameras[scope.row.cameraId]"
                   type="warning" 
                   size="mini">
                   播放中
@@ -182,7 +182,7 @@
             <el-table-column label="操作" width="120" align="center">
               <template #default="scope">
                 <el-button
-                  v-if="!playingCameras.has(scope.row.cameraId)"
+                  v-if="!playingCameras[scope.row.cameraId]"
                   type="success"
                   size="mini"
                   icon="el-icon-video-play"
@@ -200,11 +200,11 @@
             </el-table-column>
           </el-table>
 
-          <!-- 空状态 -->
+          <!-- 空状态-->
           <el-empty 
             v-if="!cameraLoading && cameras.length === 0"
             description="该车辆暂无相机数据"
-            image-size="80">
+            :image-size="80">
           </el-empty>
         </el-card>
 
@@ -212,75 +212,58 @@
         <div v-else class="no-vehicle-selected">
           <el-empty 
             description="请从左侧选择一个车辆查看相机信息"
-            image-size="120">
+            :image-size="120">
           </el-empty>
         </div>
       </el-main>
     </el-container>
-
-    <!-- 多窗口播放区域 -->
-    <div v-if="playingCameras.size > 0" class="video-grid">
-      <draggable 
-        v-model="videoWindows" 
-        :options="{ animation: 200, ghostClass: 'ghost' }"
-        class="video-container">
-        <div
+    
+    <!-- 多窗口视频播放区-- 平铺显示 -->
+    <div v-if="Object.keys(playingCameras).length > 0" class="video-grid-overlay">
+      <div class="video-grid-header">
+        <div class="header-left">
+          <i class="el-icon-video-camera"></i>
+          <span>正在播放 {{ Object.keys(playingCameras).length }} 个相机</span>
+        </div>
+        <div class="header-right">
+          <el-button 
+            type="warning" 
+            size="small"
+            icon="el-icon-close"
+            @click="batchStopCameras">
+            关闭所有
+          </el-button>
+        </div>
+      </div>
+      
+      <div class="video-grid-container" :class="getGridClass()">
+        <div 
           v-for="(videoInfo, cameraId) in playingCameras"
           :key="cameraId"
-          class="video-window"
-          :class="{ 'video-window-fullscreen': videoInfo.fullscreen }">
-          
-          <div class="video-header">
-            <div class="video-title">
+          class="video-grid-item">
+          <div class="video-item-header">
+            <span class="video-item-title">
               <i class="el-icon-video-camera"></i>
-              <span>{{ videoInfo.cameraName }}</span>
-              <el-tag size="mini" type="success">{{ cameraId }}</el-tag>
-            </div>
-            <div class="video-controls">
-              <el-button-group size="mini">
-                <el-button 
-                  icon="el-icon-full-screen"
-                  @click="toggleFullscreen(cameraId)"
-                  :type="videoInfo.fullscreen ? 'warning' : 'info'">
-                </el-button>
-                <el-button 
-                  icon="el-icon-close"
-                  type="danger"
-                  @click="stopSingleCamera(cameraId)">
-                </el-button>
-              </el-button-group>
-            </div>
+              {{ getCameraName(cameraId) }}
+            </span>
+            <el-button 
+              type="text" 
+              icon="el-icon-close"
+              size="mini"
+              @click="stopSingleCamera(cameraId)">
+            </el-button>
           </div>
-
-          <div class="video-content">
-            <rtc-player
-              :ref="'player_' + cameraId"
-              :visible="true"
+          <div class="video-item-content">
+            <vehicle-rtc-player
+              :ref="'rtcPlayer_' + cameraId"
+              :player-id="'video_' + cameraId"
               :video-url="videoInfo.url"
-              :error="videoInfo.error"
-              style="width: 100%; height: 100%;"
               :has-audio="true"
-              fluent
-              autoplay
-              live
-              @error="handleVideoError(cameraId, $event)"
-              @ready="handleVideoReady(cameraId)"
+              style="width: 100%; height: 100%;"
             />
-            
-            <!-- 加载状态 -->
-            <div v-if="videoInfo.loading" class="video-loading">
-              <el-loading-spinner></el-loading-spinner>
-              <div>正在加载视频流...</div>
-            </div>
-
-            <!-- 错误状态 -->
-            <div v-if="videoInfo.error" class="video-error">
-              <i class="el-icon-warning-outline"></i>
-              <div>{{ videoInfo.error }}</div>
-            </div>
           </div>
         </div>
-      </draggable>
+      </div>
     </div>
   </div>
 </template>
@@ -289,16 +272,15 @@
 import { 
   getAllVehicles, 
   getVehicleCameras,
+  getVehicleCameraWebRTCUrl,
   batchGetVehicleCameraWebRTCUrls
 } from '@/api/vehicle'
-import rtcPlayer from '@/views/common/rtcPlayer.vue'
-import draggable from 'vuedraggable'
+import VehicleRtcPlayer from './VehicleRtcPlayer.vue'
 
 export default {
   name: 'VehicleCameraMonitor',
   components: {
-    rtcPlayer,
-    draggable
+    VehicleRtcPlayer
   },
   data() {
     return {
@@ -313,13 +295,25 @@ export default {
       cameraLoading: false,
       
       // 播放相关
-      playingCameras: new Map(), // cameraId -> { url, cameraName, loading, error, fullscreen }
-      videoWindows: [],
-      batchPlaying: false,
+      playingCameras: {}, // cameraId -> { url, cameraName }
       singlePlayLoading: {},
 
-      // 定时器
+      // 定时刷新
       autoRefreshTimer: null
+    }
+  },
+  computed: {
+    // 根据播放数量动态计算网格布局
+    getGridClass() {
+      return () => {
+        const count = Object.keys(this.playingCameras).length
+        if (count === 1) return 'grid-1'
+        if (count === 2) return 'grid-2'
+        if (count <= 4) return 'grid-4'
+        if (count <= 6) return 'grid-6'
+        if (count <= 9) return 'grid-9'
+        return 'grid-12'
+      }
     }
   },
   mounted() {
@@ -332,12 +326,18 @@ export default {
     this.stopAllCameras()
   },
   methods: {
+    // 获取相机名称
+    getCameraName(cameraId) {
+      const camera = this.cameras.find(c => c.cameraId === cameraId)
+      return camera ? (camera.name || cameraId) : cameraId
+    },
+    
     // ==================== 车辆管理 ====================
     async loadVehicles() {
       this.vehicleLoading = true
       try {
         const response = await getAllVehicles()
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.vehicles = response.data || []
           console.log('加载车辆列表:', this.vehicles.length, '个车辆')
         } else {
@@ -372,7 +372,7 @@ export default {
       this.cameraLoading = true
       try {
         const response = await getVehicleCameras(vehicleId)
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.cameras = response.data || []
           console.log('加载相机列表:', this.cameras.length, '个相机')
           // 清空之前的选择
@@ -450,37 +450,77 @@ export default {
 
       try {
         const cameraIds = this.selectedCameras.map(camera => camera.cameraId)
+        console.log('开始批量获取播放链接', { vehicleId: this.selectedVehicle.vehicleId, cameraIds })
         
-        // 获取WebRTC播放链接
-        const response = await batchGetVehicleCameraWebRTCUrls(this.selectedVehicle.vehicleId, cameraIds)
-        if (response.code === 0 && response.data) {
-          const webrtcUrls = response.data
-          
-          // 创建播放窗口
-          for (const camera of this.selectedCameras) {
-            const cameraId = camera.cameraId
-            const url = webrtcUrls[cameraId]
+        const webrtcUrls = {}
+        let successCount = 0
+        let errorCount = 0
+
+        // 使用循环方式逐个获取播放链接，避免批量API问题
+        for (const camera of this.selectedCameras) {
+          try {
+            console.log(`获取相机 ${camera.cameraId} 播放链接...`)
+            const response = await getVehicleCameraWebRTCUrl(this.selectedVehicle.vehicleId, camera.cameraId)
+            console.log(`相机 ${camera.cameraId} API响应:`, response)
             
-            if (url) {
-              this.playingCameras.set(cameraId, {
-                url: url,
-                cameraName: camera.name || camera.cameraId,
-                loading: true,
-                error: null,
-                fullscreen: false
-              })
+            if (!response) {
+              console.warn(`相机 ${camera.cameraId} 响应为空`)
+              errorCount++
+              continue
+            }
+            
+            if (response.code === 200 && response.data) {
+              webrtcUrls[camera.cameraId] = response.data
+              successCount++
+              console.log(`相机 ${camera.cameraId} 播放链接获取成功:`, response.data)
             } else {
-              console.warn('未获取到相机播放链接:', cameraId)
-              this.$message.warning(`相机 ${cameraId} 未获取到播放链接`)
+              console.warn(`相机 ${camera.cameraId} 播放链接获取失败:`, response.msg)
+              errorCount++
+            }
+          } catch (error) {
+            console.error(`相机 ${camera.cameraId} 播放链接获取异常:`, error)
+            errorCount++
+          }
+        }
+
+        console.log('播放链接获取完成:', { successCount, errorCount, webrtcUrls })
+
+        // 创建播放窗口 - 直接设置URL到playingCameras
+        for (const camera of this.selectedCameras) {
+          const cameraId = camera.cameraId
+          const url = webrtcUrls[cameraId]
+          
+          if (url) {
+            console.log(`设置相机 ${cameraId} 播放信息:`, url)
+            
+            this.$set(this.playingCameras, cameraId, {
+              url: url,
+              cameraName: camera.name || camera.cameraId
+            })
+          }
+        }
+
+        // 等待DOM更新后播放
+        await this.$nextTick()
+        
+        // 触发所有播放器播放
+        for (const camera of this.selectedCameras) {
+          const cameraId = camera.cameraId
+          const url = webrtcUrls[cameraId]
+          
+          if (url) {
+            const playerRef = this.$refs[`rtcPlayer_${cameraId}`]
+            if (playerRef && playerRef[0]) {
+              console.log(`开始播放相机 ${cameraId}`)
+              playerRef[0].play(url)
             }
           }
-
-          // 触发响应式更新
-          this.playingCameras = new Map(this.playingCameras)
-          
-          this.$message.success(`开始播放 ${Object.keys(webrtcUrls).length} 个相机`)
+        }
+        
+        if (successCount > 0) {
+          this.$message.success(`成功打开 ${successCount} 个播放器${errorCount > 0 ? `，${errorCount} 个失败` : ''}`)
         } else {
-          this.$message.error('获取播放链接失败: ' + (response.msg || '未知错误'))
+          this.$message.error('所有相机播放失败')
         }
       } catch (error) {
         console.error('批量播放失败:', error)
@@ -499,22 +539,39 @@ export default {
       this.$set(this.singlePlayLoading, camera.cameraId, true)
       
       try {
-        const response = await batchGetVehicleCameraWebRTCUrls(this.selectedVehicle.vehicleId, [camera.cameraId])
-        if (response.code === 0 && response.data) {
-          const url = response.data[camera.cameraId]
+        const response = await getVehicleCameraWebRTCUrl(this.selectedVehicle.vehicleId, camera.cameraId)
+        
+        if (!response) {
+          this.$message.error('未找到相机推流或推流未启动')
+          return
+        }
+        
+        if (response.code === 200 && response.data) {
+          const url = response.data
           if (url) {
-            this.playingCameras.set(camera.cameraId, {
+            console.log(`单个播放相机 ${camera.cameraId}:`, url)
+            
+            // 添加到播放列表
+            this.$set(this.playingCameras, camera.cameraId, {
               url: url,
-              cameraName: camera.name || camera.cameraId,
-              loading: true,
-              error: null,
-              fullscreen: false
+              cameraName: camera.name || camera.cameraId
             })
-            // 触发响应式更新
-            this.playingCameras = new Map(this.playingCameras)
-            this.$message.success(`开始播放相机: ${camera.cameraId}`)
+            
+            // 等待DOM更新
+            await this.$nextTick()
+            
+            // 播放
+            const playerRef = this.$refs[`rtcPlayer_${camera.cameraId}`]
+            if (playerRef && playerRef[0]) {
+              playerRef[0].play(url)
+              this.$message.success(`开始播放相机 ${camera.cameraId}`)
+            } else {
+              console.error('找不到播放器组件引用:', `rtcPlayer_${camera.cameraId}`)
+              this.$message.error('播放器组件未就绪，请重试')
+              this.$delete(this.playingCameras, camera.cameraId)
+            }
           } else {
-            this.$message.error('未获取到播放链接')
+            this.$message.error('播放链接为空')
           }
         } else {
           this.$message.error('获取播放链接失败: ' + (response.msg || '未知错误'))
@@ -528,82 +585,47 @@ export default {
     },
 
     stopSingleCamera(cameraId) {
-      if (this.playingCameras.has(cameraId)) {
-        // 停止播放器
-        const playerRef = this.$refs[`player_${cameraId}`]
-        if (playerRef && playerRef[0]) {
-          playerRef[0].pause()
-        }
-        
-        this.playingCameras.delete(cameraId)
-        // 触发响应式更新
-        this.playingCameras = new Map(this.playingCameras)
-        
-        console.log('停止播放相机:', cameraId)
-        this.$message.success(`停止播放相机: ${cameraId}`)
+      console.log(`停止相机播放: ${cameraId}`)
+      
+      // 停止播放�?
+      const playerRef = this.$refs[`rtcPlayer_${cameraId}`]
+      if (playerRef && playerRef[0]) {
+        playerRef[0].pause()
       }
+      
+      // 从播放列表中移除
+      this.$delete(this.playingCameras, cameraId)
+      
+      this.$message.success(`停止播放相机: ${cameraId}`)
     },
 
     batchStopCameras() {
-      this.stopAllCameras()
+      const cameraIds = Object.keys(this.playingCameras)
+      cameraIds.forEach(cameraId => {
+        this.stopSingleCamera(cameraId)
+      })
       this.$message.success('已停止所有播放')
     },
 
     stopAllCameras() {
       // 停止所有播放器
-      this.playingCameras.forEach((_, cameraId) => {
-        const playerRef = this.$refs[`player_${cameraId}`]
+      Object.keys(this.playingCameras).forEach((cameraId) => {
+        const playerRef = this.$refs[`rtcPlayer_${cameraId}`]
         if (playerRef && playerRef[0]) {
           playerRef[0].pause()
         }
       })
       
-      this.playingCameras.clear()
-      this.playingCameras = new Map()
+      this.playingCameras = {}
       console.log('停止所有相机播放')
-    },
-
-    toggleFullscreen(cameraId) {
-      if (this.playingCameras.has(cameraId)) {
-        const videoInfo = this.playingCameras.get(cameraId)
-        videoInfo.fullscreen = !videoInfo.fullscreen
-        this.playingCameras.set(cameraId, videoInfo)
-        // 触发响应式更新
-        this.playingCameras = new Map(this.playingCameras)
-      }
-    },
-
-    // ==================== 播放器事件 ====================
-    handleVideoError(cameraId, error) {
-      console.error('视频播放错误:', cameraId, error)
-      if (this.playingCameras.has(cameraId)) {
-        const videoInfo = this.playingCameras.get(cameraId)
-        videoInfo.error = error.message || '播放失败'
-        videoInfo.loading = false
-        this.playingCameras.set(cameraId, videoInfo)
-        // 触发响应式更新
-        this.playingCameras = new Map(this.playingCameras)
-      }
-    },
-
-    handleVideoReady(cameraId) {
-      console.log('视频准备就绪:', cameraId)
-      if (this.playingCameras.has(cameraId)) {
-        const videoInfo = this.playingCameras.get(cameraId)
-        videoInfo.loading = false
-        videoInfo.error = null
-        this.playingCameras.set(cameraId, videoInfo)
-        // 触发响应式更新
-        this.playingCameras = new Map(this.playingCameras)
-      }
     },
 
     // ==================== 定时刷新 ====================
     startAutoRefresh() {
-      // 每30秒刷新一次车辆状态
+      // 10秒刷新一次车辆状态
       this.autoRefreshTimer = setInterval(() => {
         this.loadVehicles()
-      }, 30000)
+      }, 5000)
     },
 
     stopAutoRefresh() {
@@ -703,7 +725,7 @@ export default {
   margin-top: 4px;
 }
 
-/* ==================== 右侧主面板 ==================== */
+/* ==================== 右侧主面==================== */
 .right-panel {
   flex: 1;
   padding: 0;
@@ -761,90 +783,127 @@ export default {
   height: 100%;
 }
 
-/* ==================== 视频播放区域 ==================== */
-.video-grid {
+/* ==================== 视频网格播放区域 ==================== */
+.video-grid-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: #000;
   z-index: 2000;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.video-grid-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background-color: #1f1f1f;
+  color: #fff;
+  border-bottom: 1px solid #333;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.header-left i {
+  font-size: 20px;
+  color: #409eff;
+}
+
+.video-grid-container {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+  padding: 8px;
   overflow: auto;
 }
 
-.video-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  grid-gap: 20px;
-  height: 100%;
+/* 网格布局 - 根据数量自动调整 */
+.grid-1 {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
 }
 
-.video-window {
-  background-color: #000;
-  border-radius: 8px;
+.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: 1fr;
+}
+
+.grid-4 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.grid-6 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.grid-9 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+}
+
+.grid-12 {
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+}
+
+.video-grid-item {
+  background-color: #1a1a1a;
+  border-radius: 4px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
-  min-height: 300px;
+  border: 1px solid #333;
+  transition: border-color 0.3s;
 }
 
-.video-window-fullscreen {
-  position: fixed !important;
-  top: 20px !important;
-  left: 20px !important;
-  right: 20px !important;
-  bottom: 20px !important;
-  z-index: 3000;
-  grid-column: 1 / -1;
-  grid-row: 1 / -1;
+.video-grid-item:hover {
+  border-color: #409eff;
 }
 
-.video-header {
+.video-item-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
   background-color: #2c3e50;
   color: #fff;
+  min-height: 40px;
 }
 
-.video-title {
+.video-item-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.video-content {
+.video-item-title i {
+  color: #409eff;
+  flex-shrink: 0;
+}
+
+.video-item-content {
   flex: 1;
   position: relative;
   background-color: #000;
-}
-
-.video-loading {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #fff;
-  text-align: center;
-}
-
-.video-error {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #f56c6c;
-  text-align: center;
-}
-
-.video-error i {
-  font-size: 24px;
-  margin-bottom: 8px;
+  min-height: 0;
 }
 
 /* ==================== 拖拽效果 ==================== */
@@ -858,16 +917,12 @@ export default {
     width: 250px !important;
   }
   
-  .video-container {
-    grid-template-columns: 1fr;
-  }
-  
-  .video-window {
-    min-height: 250px;
+  .grid-2, .grid-4, .grid-6, .grid-9, .grid-12 {
+    grid-template-columns: 1fr !important;
   }
 }
 
-/* ==================== 滚动条样式 ==================== */
+/* ==================== 滚动条样式==================== */
 .vehicle-list::-webkit-scrollbar {
   width: 6px;
 }

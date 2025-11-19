@@ -12,7 +12,7 @@
           <span style="font-weight: bold;">车辆信息</span>
         </div>
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="编码">{{ vehicle.vehicleId }}</el-descriptions-item>
+          <el-descriptions-item label="车辆ID">{{ vehicle.vehicleId }}</el-descriptions-item>
           <el-descriptions-item label="IP地址">{{ vehicle.ipAddress || '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag v-if="vehicle.status === 'online'" type="success">在线</el-tag>
@@ -36,7 +36,7 @@
           style="width: 100%"
           :loading="camerasLoading"
         >
-          <el-table-column label="应用" min-width="120">
+          <el-table-column label="车辆ID" min-width="120">
             <template v-slot:default="scope">
               <span>{{ vehicleId }}</span>
             </template>
@@ -130,7 +130,7 @@ export default {
     loadVehicle() {
       this.loading = true
       getVehicle(this.vehicleId).then(response => {
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.vehicle = response.data
         } else {
           this.$message.error('获取车辆信息失败: ' + response.msg)
@@ -144,7 +144,7 @@ export default {
     loadCameras() {
       this.camerasLoading = true
       getVehicleCameras(this.vehicleId).then(response => {
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.cameras = (response.data || []).map(camera => ({
             ...camera,
             startLoading: false,
@@ -165,7 +165,7 @@ export default {
     startStream(camera) {
       this.$set(camera, 'startLoading', true)
       startCameraStream(this.vehicleId, camera.cameraId).then(response => {
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.$message.success('启动推流成功')
           // 延迟刷新，等待状态同步
           setTimeout(() => {
@@ -183,7 +183,7 @@ export default {
     stopStream(camera) {
       this.$set(camera, 'stopLoading', true)
       stopCameraStream(this.vehicleId, camera.cameraId).then(response => {
-        if (response.code === 0) {
+        if (response.code === 200) {
           this.$message.success('停止推流成功')
           // 延迟刷新，等待状态同步
           setTimeout(() => {

@@ -139,7 +139,7 @@ export const constantRoutes = [
         path: '/vehicle/monitor',
         name: 'VehicleMonitor',
         component: () => import('@/views/vehicle/VehicleCameraMonitor'),
-        meta: { title: '车辆监控', icon: 'video-camera' }
+        meta: { title: '车辆监控', icon: 'live' }
       }
     ]
   },
@@ -249,32 +249,32 @@ export const constantRoutes = [
   //     }
   //   ]
   // },
-  // {
-  //   path: '/operations',
-  //   component: Layout,
-  //   meta: { title: '运维中心', icon: 'operations' },
-  //   redirect: '/operations/systemInfo',
-  //   children: [
-  //     {
-  //       path: '/operations/systemInfo',
-  //       name: 'OperationsSystemInfo',
-  //       component: () => import('@/views/operations/systemInfo'),
-  //       meta: { title: '平台信息', icon: 'systemInfo' }
-  //     },
-  //     {
-  //       path: '/operations/historyLog',
-  //       name: 'OperationsHistoryLog',
-  //       component: () => import('@/views/operations/historyLog'),
-  //       meta: { title: '历史日志', icon: 'historyLog' }
-  //     },
-  //     {
-  //       path: '/operations/realLog',
-  //       name: 'OperationsRealLog',
-  //       component: () => import('@/views/operations/realLog'),
-  //       meta: { title: '实时日志', icon: 'realLog' }
-  //     }
-  //   ]
-  // },
+  {
+    path: '/operations',
+    component: Layout,
+    meta: { title: '运维中心', icon: 'operations' },
+    redirect: '/operations/systemInfo',
+    children: [
+      // {
+      //   path: '/operations/systemInfo',
+      //   name: 'OperationsSystemInfo',
+      //   component: () => import('@/views/operations/systemInfo'),
+      //   meta: { title: '平台信息', icon: 'systemInfo' }
+      // },
+      {
+        path: '/operations/historyLog',
+        name: 'OperationsHistoryLog',
+        component: () => import('@/views/operations/historyLog'),
+        meta: { title: '历史日志', icon: 'historyLog' }
+      },
+      {
+        path: '/operations/realLog',
+        name: 'OperationsRealLog',
+        component: () => import('@/views/operations/realLog'),
+        meta: { title: '实时日志', icon: 'realLog' }
+      }
+    ]
+  },
   {
     path: '/vehicle/:vehicleId/cameras',
     name: 'VehicleCameras',

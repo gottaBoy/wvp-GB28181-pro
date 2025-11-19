@@ -22,13 +22,13 @@ public class VehicleHeartbeatTask {
      * 心跳超时时间（秒）
      * 1分钟 = 60秒
      */
-    private static final int HEARTBEAT_TIMEOUT_SECONDS = 60;
+    private static final int HEARTBEAT_TIMEOUT_SECONDS = 10;
 
     /**
      * 心跳检测任务
      * 每30秒执行一次，检查是否有车辆心跳超时
      */
-    @Scheduled(fixedDelay = 30 * 1000) // 每30秒执行一次
+    @Scheduled(fixedDelay = 5 * 1000) // 每30秒执行一次
     public void checkHeartbeatTimeout() {
         try {
             log.debug("[车辆心跳检测任务] 开始执行心跳超时检查");

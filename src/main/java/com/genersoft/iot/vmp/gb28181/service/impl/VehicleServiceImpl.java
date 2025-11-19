@@ -13,6 +13,7 @@ import com.genersoft.iot.vmp.gb28181.service.IVehicleHttpClientService;
 import com.genersoft.iot.vmp.gb28181.service.IVehicleService;
 import com.genersoft.iot.vmp.media.bean.MediaServer;
 import com.genersoft.iot.vmp.media.service.IMediaServerService;
+import com.genersoft.iot.vmp.media.bean.MediaInfo;
 import com.genersoft.iot.vmp.streamPush.bean.StreamPush;
 import com.genersoft.iot.vmp.streamPush.service.IStreamPushPlayService;
 import com.genersoft.iot.vmp.streamPush.service.IStreamPushService;
@@ -451,7 +452,7 @@ public class VehicleServiceImpl implements IVehicleService {
             streamPushPlayService.start(streamPush.getId(), (code, msg, streamInfo) -> {
                 String currentTime = DateUtil.getNow();
                 log.info("[启动推流] 回调结果: code={}, msg={}, streamInfo={}", code, msg, streamInfo);
-                if (code == 0 && streamInfo != null) {
+                if (code == 200 && streamInfo != null) {
                     // 推流成功，更新相机状态
                     vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
                     log.info("[启动推流] 成功并更新状态: vehicleId={}, cameraId={}", vehicleId, cameraId);
@@ -689,11 +690,15 @@ public class VehicleServiceImpl implements IVehicleService {
             }
             
             // 获取流信息以生成WebRTC播放链接
+            // 创建MediaInfo并设置originTypeStr，确保URL包含此参数
+            MediaInfo mediaInfo = new MediaInfo();
+            mediaInfo.setOriginTypeStr("rtmp_push");
+            
             StreamInfo streamInfo = mediaServerService.getStreamInfoByAppAndStream(
                 mediaServer, 
                 vehicleId,  // app 
                 cameraId,   // stream
-                null,       // mediaInfo
+                mediaInfo,  // 传入mediaInfo以注入originTypeStr参数
                 null        // callId
             );
             

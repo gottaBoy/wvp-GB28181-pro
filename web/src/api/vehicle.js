@@ -124,3 +124,14 @@ export function getVehicleCameraWebRTCUrl(vehicleId, cameraId) {
   })
 }
 
+/**
+ * 批量获取相机WebRTC播放链接
+ */
+export function batchGetVehicleCameraWebRTCUrls(vehicleId, cameraIds) {
+  return request({
+    method: 'post',
+    url: `/api/vehicle/${vehicleId}/cameras/webrtc/play`,
+    data: cameraIds
+  })
+}
+
