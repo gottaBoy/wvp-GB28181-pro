@@ -225,7 +225,7 @@ public class FactoryMonitorController {
     @Operation(summary = "启动单个摄像头", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
-    @GetMapping(value = "/start")
+    @GetMapping(value = "/cameras/start")
     @ResponseBody
     public DeferredResult<WVPResult<StreamContent>> start(HttpServletRequest request, 
                                                            @Parameter(description = "摄像头ID", required = true) @RequestParam int id) {
@@ -278,7 +278,7 @@ public class FactoryMonitorController {
     @Operation(summary = "停止单个摄像头", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
-    @GetMapping(value = "/stop")
+    @GetMapping(value = "/cameras/stop")
     @ResponseBody
     public WVPResult<String> stop(@Parameter(description = "摄像头ID", required = true) @RequestParam int id) {
         log.info("停止摄像头播放: {}", id);
@@ -294,7 +294,7 @@ public class FactoryMonitorController {
     @Operation(summary = "批量启动摄像头", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
-    @PostMapping(value = "/batch/start")
+    @PostMapping(value = "/cameras/batch/start")
     @ResponseBody
     public WVPResult<Map<String, Object>> batchStart(@RequestBody Map<String, List<Integer>> request) {
         List<Integer> ids = request.get("ids");
@@ -328,7 +328,7 @@ public class FactoryMonitorController {
     @Operation(summary = "批量停止摄像头", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
-    @PostMapping(value = "/batch/stop")
+    @PostMapping(value = "/cameras/batch/stop")
     @ResponseBody
     public WVPResult<Map<String, Object>> batchStop(@RequestBody Map<String, List<Integer>> request) {
         List<Integer> ids = request.get("ids");

@@ -31,7 +31,7 @@ export function getFactoryCameras(app) {
 export function getCameraPlayUrl(id) {
   return request({
     method: 'get',
-    url: '/api/factory/start',
+    url: '/api/factory/cameras/start',
     params: { id }
   })
 }
@@ -43,7 +43,7 @@ export function getCameraPlayUrl(id) {
 export function stopCameraPlay(id) {
   return request({
     method: 'get',
-    url: '/api/factory/stop',
+    url: '/api/factory/cameras/stop',
     params: { id }
   })
 }
@@ -55,7 +55,7 @@ export function stopCameraPlay(id) {
 export function batchStartCameras(ids) {
   return request({
     method: 'post',
-    url: '/api/factory/batch/start',
+    url: '/api/factory/cameras/batch/start',
     data: { ids }
   })
 }
@@ -67,7 +67,7 @@ export function batchStartCameras(ids) {
 export function batchStopCameras(ids) {
   return request({
     method: 'post',
-    url: '/api/factory/batch/stop',
+    url: '/api/factory/cameras/batch/stop',
     data: { ids }
   })
 }
