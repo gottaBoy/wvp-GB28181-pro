@@ -264,7 +264,18 @@ public class ZLMMediaNodeServerService implements IMediaNodeServerService {
     @Override
     public WVPResult<String> addStreamProxy(MediaServer mediaServer, String app, String stream, String url,
                                             boolean enableAudio, boolean enableMp4, String rtpType, Integer timeout) {
-        ZLMResult<StreamProxyResult> zlmResult = zlmresTfulUtils.addStreamProxy(mediaServer, app, stream, url, enableAudio, enableMp4, rtpType, timeout);
+        // 对URL进行解码，防止双重编码
+        String decodedUrl = url;
+        try {
+            if (url != null && url.contains("%")) {
+                decodedUrl = java.net.URLDecoder.decode(url, "UTF-8");
+                log.info("[添加拉流代理] 检测到编码的URL，解码前: {}, 解码后: {}", url, decodedUrl);
+            }
+        } catch (Exception e) {
+            log.warn("[添加拉流代理] URL解码失败，使用原始URL: {}", url, e);
+        }
+        
+        ZLMResult<StreamProxyResult> zlmResult = zlmresTfulUtils.addStreamProxy(mediaServer, app, stream, decodedUrl, enableAudio, enableMp4, rtpType, timeout);
         if (zlmResult.getCode() != 0) {
             return WVPResult.fail(ErrorCode.ERROR100.getCode(), "添加代理失败");
         }else {
@@ -442,16 +453,33 @@ public class ZLMMediaNodeServerService implements IMediaNodeServerService {
             closeStreams(mediaServer, streamProxy.getApp(), streamProxy.getStream());
         }
 
+        // 对srcUrl进行URL解码，防止双重编码
+        String srcUrl = streamProxy.getSrcUrl().trim();
+        log.info("[拉流代理] 原始srcUrl: {}", srcUrl);
+        try {
+            // 检测URL是否已被编码（包含%编码字符）
+            if (srcUrl.contains("%")) {
+                String decodedUrl = java.net.URLDecoder.decode(srcUrl, "UTF-8");
+                log.info("[拉流代理] 检测到编码的srcUrl，解码前: {}, 解码后: {}", srcUrl, decodedUrl);
+                srcUrl = decodedUrl;
+            } else {
+                log.info("[拉流代理] srcUrl未被编码，直接使用");
+            }
+        } catch (Exception e) {
+            log.warn("[拉流代理] srcUrl解码失败，使用原始URL: {}", srcUrl, e);
+        }
+        log.info("[拉流代理] 最终使用的srcUrl: {}", srcUrl);
+
         ZLMResult<StreamProxyResult> zlmResult = null;
         if ("ffmpeg".equalsIgnoreCase(streamProxy.getType())){
             if (streamProxy.getTimeout() == 0) {
                 streamProxy.setTimeout(15);
             }
-            zlmResult = zlmresTfulUtils.addFFmpegSource(mediaServer, streamProxy.getSrcUrl().trim(), dstUrl,
+            zlmResult = zlmresTfulUtils.addFFmpegSource(mediaServer, srcUrl, dstUrl,
                     streamProxy.getTimeout(), streamProxy.isEnableAudio(), streamProxy.isEnableMp4(),
                     streamProxy.getFfmpegCmdKey());
         }else {
-            zlmResult = zlmresTfulUtils.addStreamProxy(mediaServer, streamProxy.getApp(), streamProxy.getStream(), streamProxy.getSrcUrl().trim(),
+            zlmResult = zlmresTfulUtils.addStreamProxy(mediaServer, streamProxy.getApp(), streamProxy.getStream(), srcUrl,
                     streamProxy.isEnableAudio(), streamProxy.isEnableMp4(), streamProxy.getRtspType(), streamProxy.getTimeout());
         }
         if (zlmResult.getCode() != 0) {

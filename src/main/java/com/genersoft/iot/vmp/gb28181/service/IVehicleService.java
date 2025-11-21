@@ -1,5 +1,6 @@
 package com.genersoft.iot.vmp.gb28181.service;
 
+import com.genersoft.iot.vmp.common.StreamInfo;
 import com.genersoft.iot.vmp.gb28181.bean.Vehicle;
 import com.genersoft.iot.vmp.gb28181.bean.VehicleCamera;
 import com.genersoft.iot.vmp.gb28181.bean.dto.VehicleCamerasUpdateDTO;
@@ -116,9 +117,9 @@ public interface IVehicleService {
      * 直接调用车辆端启动相机推流
      * @param vehicleId 车辆ID
      * @param cameraId 相机ID
-     * @return 是否成功
+     * @return 流信息（包含播放链接），失败返回null
      */
-    boolean directStartCameraStream(String vehicleId, String cameraId);
+    StreamInfo directStartCameraStream(String vehicleId, String cameraId);
 
     /**
      * 直接调用车辆端停止相机推流

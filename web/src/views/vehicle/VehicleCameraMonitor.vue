@@ -325,7 +325,9 @@ import {
   getAllVehicles, 
   getVehicleCameras,
   getVehicleCameraWebRTCUrl,
-  batchGetVehicleCameraWebRTCUrls
+  batchGetVehicleCameraWebRTCUrls,
+  directStartCameraStream,
+  directStopCameraStream
 } from '@/api/vehicle'
 import VehicleRtcPlayer from './VehicleRtcPlayer.vue'
 import vehicleLogger from '@/utils/vehicleLogger'
@@ -848,6 +850,9 @@ export default {
       // 10秒刷新一次车辆状态
       this.autoRefreshTimer = setInterval(() => {
         this.loadVehicles()
+        // if (this.selectedVehicle) {
+        //   this.loadVehicleCameras(this.selectedVehicle.vehicleId)
+        // }
       }, 5000)
     },
 

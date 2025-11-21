@@ -96,6 +96,18 @@ public class StreamProxyController {
     @ResponseBody
     public DeferredResult<WVPResult<StreamContent>> save(HttpServletRequest request, @RequestBody StreamProxyParam param){
         log.info("添加代理： " + JSONObject.toJSONString(param));
+        
+        // 对URL进行解码，防止前端传入已编码的URL
+        if (param.getUrl() != null && param.getUrl().contains("%")) {
+            try {
+                String decodedUrl = java.net.URLDecoder.decode(param.getUrl(), "UTF-8");
+                log.info("[添加拉流代理] 检测到编码的URL，解码前: {}, 解码后: {}", param.getUrl(), decodedUrl);
+                param.setUrl(decodedUrl);
+            } catch (Exception e) {
+                log.warn("[添加拉流代理] URL解码失败，使用原始URL: {}", param.getUrl(), e);
+            }
+        }
+        
         if (ObjectUtils.isEmpty(param.getMediaServerId())) {
             param.setMediaServerId("auto");
         }
@@ -144,6 +156,18 @@ public class StreamProxyController {
     @ResponseBody
     public StreamProxy add(@RequestBody StreamProxy param){
         log.info("添加代理： " + JSONObject.toJSONString(param));
+        
+        // 对srcUrl进行解码，防止前端传入已编码的URL
+        if (param.getSrcUrl() != null && param.getSrcUrl().contains("%")) {
+            try {
+                String decodedUrl = java.net.URLDecoder.decode(param.getSrcUrl(), "UTF-8");
+                log.info("[新增拉流代理] 检测到编码的srcUrl，解码前: {}, 解码后: {}", param.getSrcUrl(), decodedUrl);
+                param.setSrcUrl(decodedUrl);
+            } catch (Exception e) {
+                log.warn("[新增拉流代理] srcUrl解码失败，使用原始URL: {}", param.getSrcUrl(), e);
+            }
+        }
+        
         if (ObjectUtils.isEmpty(param.getRelatesMediaServerId())) {
             param.setRelatesMediaServerId(null);
         }
@@ -165,6 +189,18 @@ public class StreamProxyController {
     @ResponseBody
     public StreamProxy update(@RequestBody StreamProxy param){
         log.info("更新代理： " + JSONObject.toJSONString(param));
+        
+        // 对srcUrl进行解码，防止前端传入已编码的URL
+        if (param.getSrcUrl() != null && param.getSrcUrl().contains("%")) {
+            try {
+                String decodedUrl = java.net.URLDecoder.decode(param.getSrcUrl(), "UTF-8");
+                log.info("[更新拉流代理] 检测到编码的srcUrl，解码前: {}, 解码后: {}", param.getSrcUrl(), decodedUrl);
+                param.setSrcUrl(decodedUrl);
+            } catch (Exception e) {
+                log.warn("[更新拉流代理] srcUrl解码失败，使用原始URL: {}", param.getSrcUrl(), e);
+            }
+        }
+        
         if (param.getId() == 0) {
             throw new ControllerException(ErrorCode.ERROR400.getCode(), "缺少代理信息的ID");
         }

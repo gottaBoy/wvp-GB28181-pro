@@ -215,83 +215,19 @@ public class VehicleHttpClientServiceImpl implements IVehicleHttpClientService {
 
     @Override
     public boolean directSubscribeCamera(String vehicleIpAddress, Integer port, String cameraId, String vehicleId, String apiKey) {
-        log.info("[直接订阅相机] 调用车辆端API: vehicleIpAddress={}, port={}, cameraId={}, vehicleId={}", 
+        log.info("[直接订阅相机] vehicleIpAddress={}, port={}, cameraId={}, vehicleId={}", 
                 vehicleIpAddress, port, cameraId, vehicleId);
-
-        if (!StringUtils.hasText(vehicleIpAddress) || !StringUtils.hasText(cameraId)) {
-            log.warn("[直接订阅相机] 参数为空");
-            return false;
-        }
-
-        try {
-            String url = buildApiUrl(vehicleIpAddress, port, "/api/camera/subscribe");
-            HttpHeaders headers = buildHeaders(apiKey);
-
-            // 构建请求体
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("cameraId", cameraId);
-            if (StringUtils.hasText(vehicleId)) {
-                requestBody.put("vehicleId", vehicleId);
-            }
-
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
-
-            log.debug("[直接订阅相机] 请求URL: {}, 请求体: {}", url, requestBody);
-
-            ResponseEntity<Map> response = vehicleRestTemplate.postForEntity(url, requestEntity, Map.class);
-
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("[直接订阅相机] 成功: vehicleIpAddress={}, cameraId={}", vehicleIpAddress, cameraId);
-                return true;
-            } else {
-                log.warn("[直接订阅相机] 失败: vehicleIpAddress={}, cameraId={}, status={}", 
-                        vehicleIpAddress, cameraId, response.getStatusCode());
-                return false;
-            }
-        } catch (Exception e) {
-            log.error("[直接订阅相机] 异常: vehicleIpAddress={}, cameraId={}", vehicleIpAddress, cameraId, e);
-            return false;
-        }
+        
+        // 复用subscribeCameras方法，将单个cameraId转为列表
+        return subscribeCameras(vehicleIpAddress, port, Collections.singletonList(cameraId), apiKey);
     }
 
     @Override
     public boolean directUnsubscribeCamera(String vehicleIpAddress, Integer port, String cameraId, String vehicleId, String apiKey) {
-        log.info("[直接取消订阅相机] 调用车辆端API: vehicleIpAddress={}, port={}, cameraId={}, vehicleId={}", 
+        log.info("[直接取消订阅相机] vehicleIpAddress={}, port={}, cameraId={}, vehicleId={}", 
                 vehicleIpAddress, port, cameraId, vehicleId);
-
-        if (!StringUtils.hasText(vehicleIpAddress) || !StringUtils.hasText(cameraId)) {
-            log.warn("[直接取消订阅相机] 参数为空");
-            return false;
-        }
-
-        try {
-            String url = buildApiUrl(vehicleIpAddress, port, "/api/camera/unsubscribe");
-            HttpHeaders headers = buildHeaders(apiKey);
-
-            // 构建请求体
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("cameraId", cameraId);
-            if (StringUtils.hasText(vehicleId)) {
-                requestBody.put("vehicleId", vehicleId);
-            }
-
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
-
-            log.debug("[直接取消订阅相机] 请求URL: {}, 请求体: {}", url, requestBody);
-
-            ResponseEntity<Map> response = vehicleRestTemplate.postForEntity(url, requestEntity, Map.class);
-
-            if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("[直接取消订阅相机] 成功: vehicleIpAddress={}, cameraId={}", vehicleIpAddress, cameraId);
-                return true;
-            } else {
-                log.warn("[直接取消订阅相机] 失败: vehicleIpAddress={}, cameraId={}, status={}", 
-                        vehicleIpAddress, cameraId, response.getStatusCode());
-                return false;
-            }
-        } catch (Exception e) {
-            log.error("[直接取消订阅相机] 异常: vehicleIpAddress={}, cameraId={}", vehicleIpAddress, cameraId, e);
-            return false;
-        }
+        
+        // 复用unsubscribeCameras方法，将单个cameraId转为列表
+        return unsubscribeCameras(vehicleIpAddress, port, Collections.singletonList(cameraId), apiKey);
     }
 }

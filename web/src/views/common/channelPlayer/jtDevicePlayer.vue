@@ -572,6 +572,17 @@ export default {
     broadcastStatusClick() {
       if (this.broadcastStatus == -1) {
         // 默认状态， 开始
+        
+        // 参数验证：deviceId和channelId不能为空
+        if (!this.deviceId || !this.channelId) {
+          this.$message({
+            showClose: true,
+            message: '设备ID或通道ID为空，无法启动语音广播',
+            type: "error",
+          });
+          return;
+        }
+        
         this.broadcastStatus = 0
         // 发起语音对讲
         this.$axios({
@@ -704,6 +715,13 @@ export default {
         this.broadcastRtc.close();
       }
       this.broadcastStatus = -1;
+      
+      // 参数验证：deviceId和channelId不能为空
+      if (!this.deviceId || !this.channelId) {
+        console.warn('[停止语音广播] 参数为空，跳过API调用', { deviceId: this.deviceId, channelId: this.channelId });
+        return;
+      }
+      
       this.$axios({
         method: 'get',
         url: '/api/play/broadcast/stop/' + this.deviceId + '/' + this.channelId

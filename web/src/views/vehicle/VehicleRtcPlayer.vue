@@ -45,6 +45,13 @@ export default {
   },
   mounted() {
     console.log(`[${this.playerId}] 组件已挂载`)
+    // 🔑 关键修复: 如果组件挂载时已有URL，立即播放
+    if (this.videoUrl) {
+      console.log(`[${this.playerId}] 组件挂载时已有URL，立即播放:`, this.videoUrl)
+      this.$nextTick(() => {
+        this.play(this.videoUrl)
+      })
+    }
   },
   beforeDestroy() {
     console.log(`[${this.playerId}] 组件即将销毁，清理播放器`)

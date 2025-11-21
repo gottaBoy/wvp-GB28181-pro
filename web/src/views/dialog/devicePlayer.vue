@@ -490,6 +490,25 @@ export default {
         }
       }
       
+      // URL解码：防止URL被编码导致播放器无法识别schema
+      // 例如: rtsp%3A%2F%2F... 应该解码为 rtsp://...
+      if (videoUrl && typeof videoUrl === 'string') {
+        try {
+          // 检查URL是否被URL编码（schema部分被编码）
+          // 正常URL应该以协议开头，如 rtsp://, http://, ws:// 等
+          // 如果以 rtsp%3A 或 http%3A 等开头，说明被编码了
+          if (videoUrl.match(/^(rtsp|http|ws|wss|flv)%3A/i)) {
+            const decodedUrl = decodeURIComponent(videoUrl)
+            console.log('[URL解码] 检测到编码的URL')
+            console.log('[URL解码] 原始URL:', videoUrl)
+            console.log('[URL解码] 解码后:', decodedUrl)
+            videoUrl = decodedUrl
+          }
+        } catch (e) {
+          console.warn('[URL解码] 解码失败，使用原始URL:', e)
+        }
+      }
+      
       return videoUrl
     },
 

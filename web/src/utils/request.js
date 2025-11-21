@@ -60,7 +60,12 @@ service.interceptors.response.use(
       // 车辆相机播放错误：静默处理（不显示弹窗提示）
       else if (response.config.url.indexOf('/api/vehicle/') >= 0 && response.config.url.indexOf('/webrtc/play') >= 0) {
         console.warn('车辆相机播放失败（静默）:', errorMsg)
-        return res // 直接返回响应，不显示错误提示
+        return Promise.reject(new Error(errorMsg)) // 返回rejected promise，让调用方处理
+      }
+      // 拉流代理播放错误：静默处理（由前端页面统一处理错误）
+      else if (response.config.url.indexOf('/api/proxy/start') >= 0) {
+        console.warn('[拉流代理] 播放失败（静默）:', errorMsg)
+        return Promise.reject(new Error(errorMsg)) // 返回rejected promise
       }
       
       Message({
@@ -68,13 +73,14 @@ service.interceptors.response.use(
         type: 'error',
         duration: 5 * 1000
       })
+      return Promise.reject(new Error(errorMsg || 'Error'))
     } else {
       return res
     }
   },
   error => {
-    console.log(error) // for debug
-    if (error.response.status === 401) {
+    console.log('HTTP请求错误:', error) // for debug
+    if (error.response && error.response.status === 401) {
       // to re-login
       MessageBox.confirm('登录已经到期， 是否重新登录', '登录确认', {
         confirmButtonText: '重新登录',
@@ -86,13 +92,18 @@ service.interceptors.response.use(
         })
       })
     } else {
-      Message({
-        message: error.message,
-        type: 'error',
-        duration: 5 * 1000
-      })
+      // 拉流代理播放错误：静默处理
+      if (error.config && error.config.url && error.config.url.indexOf('/api/proxy/start') >= 0) {
+        console.warn('[拉流代理] HTTP请求失败（静默）:', error.message)
+      } else {
+        Message({
+          message: error.message || '网络请求失败',
+          type: 'error',
+          duration: 5 * 1000
+        })
+      }
     }
-    // return Promise.reject(error)
+    return Promise.reject(error)
   }
 )
 

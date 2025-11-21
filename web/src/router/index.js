@@ -122,12 +122,12 @@ export const constantRoutes = [
         component: () => import('@/views/streamPush/index'),
         meta: { title: '推流列表', icon: 'streamPush' }
       },
-      // {
-      //   path: '/proxy',
-      //   name: 'Proxy',
-      //   component: () => import('@/views/streamProxy/index'),
-      //   meta: { title: '拉流代理', icon: 'streamProxy' }
-      // },
+      {
+        path: '/proxy',
+        name: 'Proxy',
+        component: () => import('@/views/streamProxy/index'),
+        meta: { title: '拉流代理', icon: 'streamProxy' }
+      },
       {
         path: '/vehicle',
         name: 'Vehicle',
@@ -146,6 +146,12 @@ export const constantRoutes = [
         name: 'VehicleMonitor',
         component: () => import('@/views/vehicle/VehicleCameraMonitor'),
         meta: { title: '车辆监控', icon: 'live' }
+      },
+      {
+        path: '/factory/monitor',
+        name: 'FactoryMonitor',
+        component: () => import('@/views/factory/FactoryMonitor'),
+        meta: { title: '厂区监控', icon: 'el-icon-office-building' }
       },
       {
         path: '/vehicle/logs',

@@ -852,24 +852,24 @@ public class VehicleServiceImpl implements IVehicleService {
     }
 
     @Override
-    public boolean directStartCameraStream(String vehicleId, String cameraId) {
+    public StreamInfo directStartCameraStream(String vehicleId, String cameraId) {
         log.info("[直接启动推流] vehicleId={}, cameraId={}", vehicleId, cameraId);
 
         if (!StringUtils.hasText(vehicleId) || !StringUtils.hasText(cameraId)) {
             log.warn("[直接启动推流] 参数为空: vehicleId={}, cameraId={}", vehicleId, cameraId);
-            return false;
+            return null;
         }
 
         Vehicle vehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
         if (vehicle == null) {
             log.warn("[直接启动推流] 车辆不存在: vehicleId={}", vehicleId);
-            return false;
+            return null;
         }
 
         String ipAddress = vehicle.getIpAddress();
         if (!StringUtils.hasText(ipAddress)) {
             log.warn("[直接启动推流] 车辆IP地址为空: vehicleId={}", vehicleId);
-            return false;
+            return null;
         }
 
         try {
@@ -885,18 +885,82 @@ public class VehicleServiceImpl implements IVehicleService {
             if (success) {
                 log.info("[直接启动推流] 成功: vehicleId={}, cameraId={}, ipAddress={}", vehicleId, cameraId, ipAddress);
                 
-                // 可选：更新本地相机状态为推流中（如果需要同步状态）
+                // 更新本地相机状态为推流中
                 String currentTime = DateUtil.getNow();
                 vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
                 
-                return true;
+                // 等待推流建立（最多等待10秒，因为ROS2订阅和推流进程启动需要时间）
+                int retryCount = 0;
+                int maxRetry = 20; // 20次 x 500ms = 10秒
+                StreamPush streamPush = null;
+                
+                log.info("[直接启动推流] 开始等待推流建立: vehicleId={}, cameraId={}, maxWaitTime={}秒", vehicleId, cameraId, maxRetry * 0.5);
+                
+                while (retryCount < maxRetry) {
+                    try {
+                        Thread.sleep(500); // 每500ms检查一次
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        log.warn("[直接启动推流] 等待被中断: vehicleId={}, cameraId={}", vehicleId, cameraId);
+                        break;
+                    }
+                    
+                    streamPush = streamPushService.getPush(vehicleId, cameraId);
+                    if (streamPush != null) {
+                        log.debug("[直接启动推流] 第{}次检查: vehicleId={}, cameraId={}, pushing={}, streamPush={}", 
+                                retryCount + 1, vehicleId, cameraId, streamPush.isPushing(), streamPush);
+                        
+                        if (streamPush.isPushing()) {
+                            log.info("[直接启动推流] ✓ 推流已建立: vehicleId={}, cameraId={}, 等待时间={}秒", 
+                                    vehicleId, cameraId, (retryCount + 1) * 0.5);
+                            break;
+                        }
+                    } else {
+                        log.debug("[直接启动推流] 第{}次检查: vehicleId={}, cameraId={}, 推流记录不存在", 
+                                retryCount + 1, vehicleId, cameraId);
+                    }
+                    retryCount++;
+                }
+                
+                if (streamPush == null || !streamPush.isPushing()) {
+                    log.warn("[直接启动推流] ✗ 推流未建立（超时{}秒），但启动命令已发送: vehicleId={}, cameraId={}, streamPush存在={}", 
+                            maxRetry * 0.5, vehicleId, cameraId, streamPush != null);
+                    return null;
+                }
+                
+                // 获取媒体服务器
+                MediaServer mediaServer = mediaServerService.getOne(streamPush.getMediaServerId());
+                if (mediaServer == null) {
+                    log.warn("[直接启动推流] 未找到媒体服务器: mediaServerId={}", streamPush.getMediaServerId());
+                    return null;
+                }
+                
+                // 获取流信息
+                MediaInfo mediaInfo = new MediaInfo();
+                mediaInfo.setOriginTypeStr("rtmp_push");
+                
+                StreamInfo streamInfo = mediaServerService.getStreamInfoByAppAndStream(
+                    mediaServer, 
+                    vehicleId,  // app
+                    cameraId,   // stream
+                    mediaInfo,
+                    null
+                );
+                
+                if (streamInfo != null) {
+                    log.info("[直接启动推流] 获取流信息成功: vehicleId={}, cameraId={}", vehicleId, cameraId);
+                    return streamInfo;
+                } else {
+                    log.warn("[直接启动推流] 获取流信息失败: vehicleId={}, cameraId={}", vehicleId, cameraId);
+                    return null;
+                }
             } else {
                 log.warn("[直接启动推流] 失败: vehicleId={}, cameraId={}, ipAddress={}", vehicleId, cameraId, ipAddress);
-                return false;
+                return null;
             }
         } catch (Exception e) {
             log.error("[直接启动推流] 异常: vehicleId={}, cameraId={}, ipAddress={}", vehicleId, cameraId, ipAddress, e);
-            return false;
+            return null;
         }
     }
 

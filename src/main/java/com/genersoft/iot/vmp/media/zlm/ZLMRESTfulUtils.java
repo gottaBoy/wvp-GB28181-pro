@@ -331,11 +331,12 @@ public class ZLMRESTfulUtils {
 
     public ZLMResult<StreamProxyResult> addFFmpegSource(MediaServer mediaServer, String src_url, String dst_url, Integer timeout_sec,
                                       boolean enable_audio, boolean enable_mp4, String ffmpeg_cmd_key){
-        try {
-            src_url = URLEncoder.encode(src_url, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new ControllerException(ErrorCode.ERROR100.getCode(),"url编码失败");
-        }
+        // 注释掉手动URL编码，因为OkHttp的FormBody会自动编码，手动编码会导致双重编码
+        // try {
+        //     src_url = URLEncoder.encode(src_url, "UTF-8");
+        // } catch (UnsupportedEncodingException e) {
+        //     throw new ControllerException(ErrorCode.ERROR100.getCode(),"url编码失败");
+        // }
 
         Map<String, Object> param = new HashMap<>();
         param.put("src_url", src_url);
@@ -583,11 +584,12 @@ public class ZLMRESTfulUtils {
     }
 
     public ZLMResult<StreamProxyResult> addStreamProxy(MediaServer mediaServer, String app, String stream, String url, boolean enable_audio, boolean enable_mp4, String rtp_type, Integer timeOut) {
-        try {
-            url = URLEncoder.encode(url, "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new ControllerException(ErrorCode.ERROR100.getCode(),"url编码失败");
-        }
+        // 注释掉手动URL编码，因为OkHttp的FormBody会自动编码，手动编码会导致双重编码
+        // try {
+        //     url = URLEncoder.encode(url, "UTF-8");
+        // } catch (UnsupportedEncodingException e) {
+        //     throw new ControllerException(ErrorCode.ERROR100.getCode(),"url编码失败");
+        // }
         Map<String, Object> param = new HashMap<>();
         param.put("vhost", "__defaultVhost__");
         param.put("app", app);
