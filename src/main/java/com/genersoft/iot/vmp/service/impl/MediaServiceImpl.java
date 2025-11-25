@@ -24,6 +24,8 @@ import com.genersoft.iot.vmp.service.IUserService;
 import com.genersoft.iot.vmp.storager.IRedisCatchStorage;
 import com.genersoft.iot.vmp.streamProxy.bean.StreamProxy;
 import com.genersoft.iot.vmp.streamProxy.service.IStreamProxyService;
+import com.genersoft.iot.vmp.streamPush.bean.StreamPush;
+import com.genersoft.iot.vmp.streamPush.service.IStreamPushService;
 import com.genersoft.iot.vmp.utils.DateUtil;
 import com.genersoft.iot.vmp.utils.MediaServerUtils;
 import com.genersoft.iot.vmp.vmanager.bean.ErrorCode;
@@ -45,6 +47,9 @@ public class MediaServiceImpl implements IMediaService {
 
     @Autowired
     private IStreamProxyService streamProxyService;
+
+    @Autowired
+    private IStreamPushService streamPushService;
 
     @Autowired
     private UserSetting userSetting;
@@ -279,6 +284,34 @@ public class MediaServiceImpl implements IMediaService {
             return true;
         } else {
             // 非国标流 推流/拉流代理
+            // 先检查是否是推流（包括车辆推流）
+            StreamPush streamPush = streamPushService.getPush(app, stream);
+            if (streamPush != null) {
+                // 推流类型（包括车辆推流），根据配置决定行为
+                Integer action = userSetting.getPushNoneReaderAction();
+                if (action == null) {
+                    action = 0; // 默认不做处理
+                }
+                
+                switch (action) {
+                    case 1:
+                        // 停用：停止推流但保留记录
+                        log.info("[{}/{}] 推流无人观看，根据配置停用推流（保留记录）", app, stream);
+                        streamPushService.stopByAppAndStream(app, stream);
+                        return true; // 返回true表示需要关闭流
+                    case 2:
+                        // 移除：删除推流记录
+                        log.info("[{}/{}] 推流无人观看，根据配置移除推流记录", app, stream);
+                        streamPushService.deleteByAppAndStream(app, stream);
+                        return true; // 返回true表示需要关闭流
+                    case 0:
+                    default:
+                        // 不做处理：保持推流状态
+                        log.debug("[{}/{}] 推流类型，无人观看时不自动关闭（配置：不做处理）", app, stream);
+                        return false; // 返回false表示不关闭流
+                }
+            }
+            
             // 拉流代理
             StreamProxy streamProxy = streamProxyService.getStreamProxyByAppAndStream(app, stream);
             if (streamProxy != null) {

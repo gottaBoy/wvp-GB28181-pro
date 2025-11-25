@@ -89,6 +89,8 @@ user-settings:
     record-push-live: false
     record-sip: false
     stream-on-demand: true
+    # 推流无人观看时的处理方式: 0-不做处理(保持推流), 1-停用(停止推流但保留记录), 2-移除(删除推流记录)
+    push-none-reader-action: 0
     interface-authentication: false
     broadcast-for-platform: TCP-PASSIVE
     push-stream-after-ack: true

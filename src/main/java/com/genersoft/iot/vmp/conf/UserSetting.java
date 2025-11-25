@@ -88,6 +88,14 @@ public class UserSetting {
     private Boolean streamOnDemand = Boolean.TRUE;
 
     /**
+     * 推流无人观看时的处理方式
+     * 0: 不做处理（保持推流，默认）
+     * 1: 停用（停止推流但保留记录）
+     * 2: 移除（删除推流记录）
+     */
+    private Integer pushNoneReaderAction = 0;
+
+    /**
      * 推流鉴权， 默认开启
      */
     private Boolean pushAuthority = Boolean.TRUE;

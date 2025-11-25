@@ -125,6 +125,8 @@ user-settings:
     stream-on-demand: true
     interface-authentication: true
     broadcast-for-platform: TCP-PASSIVE
+    # 推流无人观看时的处理方式: 0-不做处理(保持推流), 1-停用(停止推流但保留记录), 2-移除(删除推流记录)
+    push-none-reader-action: ${PushNoneReaderAction:0}
     push-stream-after-ack: true
     send-to-platforms-when-id-lost: true
     interface-authentication-excludes:
