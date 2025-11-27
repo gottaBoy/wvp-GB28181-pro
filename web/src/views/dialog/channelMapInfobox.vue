@@ -47,7 +47,7 @@ export default {
         url: '/api/play/start/' + deviceId + '/' + channelId
       }).then(function (res) {
         that.isLoging = false;
-        if (res.data.code === 200) {
+        if (res.data.code === 200 || res.data.code === 0) {
           that.$refs.devicePlayer.openDialog("media", deviceId, channelId, {
             streamInfo: res.data.data,
             hasAudio: this.channel.hasAudio

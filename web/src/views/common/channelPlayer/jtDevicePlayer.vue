@@ -340,7 +340,7 @@ export default {
           url: '/zlm/' + this.mediaServerId + '/index/api/getMediaInfo?vhost=__defaultVhost__&schema=rtsp&app=' + this.app + '&stream=' + this.streamId
         }).then(function (res) {
           that.tracksLoading = false;
-          if (res.data.code == 200 && res.data.tracks) {
+          if ((res.data.code == 200 || res.data.code == 0) && res.data.tracks) {
             that.tracks = res.data.tracks;
           } else {
             that.tracksNotLoaded = true;
@@ -589,7 +589,7 @@ export default {
           method: 'get',
           url: '/api/play/broadcast/' + this.deviceId + '/' + this.channelId + "?timeout=30&broadcastMode=" + this.broadcastMode
         }).then((res) => {
-          if (res.data.code === 200) {
+          if (res.data.code === 200 || res.data.code === 0) {
             let streamInfo = res.data.data.streamInfo;
             if (document.location.protocol.includes("https")) {
               this.startBroadcast(streamInfo.rtcs)
@@ -617,7 +617,7 @@ export default {
         method: 'post',
         url: '/api/user/userInfo',
       }).then((res) => {
-        if (res.data.code !== 0) {
+        if (res.data.code !== 200 || res.data.code !== 0) {
           this.$message({
             showClose: true,
             message: "获取推流鉴权Key失败",
@@ -726,7 +726,7 @@ export default {
         method: 'get',
         url: '/api/play/broadcast/stop/' + this.deviceId + '/' + this.channelId
       }).then((res) => {
-        if (res.data.code == 200) {
+        if (res.data.code == 200 || res.data.code == 0) {
           // this.broadcastStatus = -1;
           // this.broadcastRtc.close()
         } else {

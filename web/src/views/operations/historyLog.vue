@@ -211,7 +211,7 @@ export default {
         }
       }).then(function(res) {
         console.log(res)
-        if (res.data.code === 200) {
+        if (res.data.code === 200 || res.data.code === 0) {
           that.total = res.data.data.total
           that.fileList = res.data.data.list
         }

@@ -456,7 +456,7 @@ public class VehicleServiceImpl implements IVehicleService {
             streamPushPlayService.start(streamPush.getId(), (code, msg, streamInfo) -> {
                 String currentTime = DateUtil.getNow();
                 log.info("[启动推流] 回调结果: code={}, msg={}, streamInfo={}", code, msg, streamInfo);
-                if (code == 200 && streamInfo != null) {
+                if ((code == 200 || code == 0) && streamInfo != null) {
                     // 推流成功，更新相机状态
                     vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
                     log.info("[启动推流] 成功并更新状态: vehicleId={}, cameraId={}", vehicleId, cameraId);
