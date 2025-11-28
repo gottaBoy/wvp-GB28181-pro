@@ -78,6 +78,9 @@ export default {
     immediate: true
   },
     mounted() {
+      // 🔑 关键修复: 在组件挂载时立即设置全局错误处理，捕获missile.js加载时的WebAssembly错误
+      this.setupGlobalErrorHandlers()
+      
       const paramUrl = decodeURIComponent(this.$route.params.url)
       this.$resizeHandler = () => {
         this.updatePlayerDomSize()
@@ -94,6 +97,16 @@ export default {
     if (this.$resizeHandler) {
       window.removeEventListener('resize', this.$resizeHandler)
     }
+    // 移除全局错误处理
+    if (this._globalErrorHandler) {
+      window.removeEventListener('error', this._globalErrorHandler)
+      this._globalErrorHandler = null
+    }
+    // 移除unhandledrejection事件监听器
+    if (this._unhandledRejectionHandler) {
+      window.removeEventListener('unhandledrejection', this._unhandledRejectionHandler)
+      this._unhandledRejectionHandler = null
+    }
     // 清理ResizeObserver
     if (this.parentNodeResizeObserver) {
       this.parentNodeResizeObserver.disconnect()
@@ -107,6 +120,69 @@ export default {
     this.playerLoading = false
   },
   methods: {
+    setupGlobalErrorHandlers() {
+      // 🔑 关键修复: 设置全局错误处理，捕获missile.js加载时的WebAssembly内存分配错误
+      // 这个错误发生在页面加载时，早于组件创建
+      if (this._globalErrorHandler) {
+        return // 已经设置过了
+      }
+      
+      // 保存原始错误处理
+      const originalErrorHandler = window.onerror
+      const originalUnhandledRejection = window.onunhandledrejection
+      
+      // 设置全局错误处理
+      this._globalErrorHandler = (msg, url, line, col, error) => {
+        const errorMsg = msg || (error && error.message) || (error && error.toString()) || ''
+        
+        // 检查是否是WebAssembly内存分配错误
+        if (errorMsg.includes('WebAssembly.Memory') || 
+            errorMsg.includes('could not allocate memory') || 
+            errorMsg.includes('RangeError') ||
+            (url && url.includes('missile.js'))) {
+          console.error('[H265web] 检测到WebAssembly内存分配失败:', { msg, url, line, col, error })
+          
+          // 显示用户友好的错误提示
+          if (this.$message) {
+            this.$message.error('内存不足，无法使用H265web播放器。建议：1. 关闭其他播放器 2. 刷新页面 3. 使用其他播放器（如WebRTC或FLV）')
+          }
+          
+          // 触发错误事件
+          this.$emit('error', new Error(errorMsg))
+          
+          // 阻止默认错误处理（避免控制台显示错误）
+          return true
+        }
+        
+        // 其他错误继续使用原始处理
+        if (originalErrorHandler) {
+          return originalErrorHandler(msg, url, line, col, error)
+        }
+        return false
+      }
+      
+      // 设置 unhandledrejection 处理
+      this._unhandledRejectionHandler = (event) => {
+        const errorMsg = event.reason?.message || event.reason?.toString() || ''
+        
+        if (errorMsg.includes('WebAssembly.Memory') || 
+            errorMsg.includes('could not allocate memory') || 
+            errorMsg.includes('RangeError')) {
+          console.error('[H265web] 检测到WebAssembly内存分配失败 (Promise):', event.reason)
+          
+          if (this.$message) {
+            this.$message.error('内存不足，无法使用H265web播放器。建议：1. 关闭其他播放器 2. 刷新页面 3. 使用其他播放器（如WebRTC或FLV）')
+          }
+          
+          this.$emit('error', event.reason)
+          event.preventDefault() // 阻止默认错误处理
+        }
+      }
+      
+      // 注册全局错误处理
+      window.addEventListener('error', this._globalErrorHandler)
+      window.addEventListener('unhandledrejection', this._unhandledRejectionHandler)
+    },
     updatePlayerDomSize() {
       const dom = this.$refs.container
       if (!dom || !dom.parentNode) {
@@ -174,6 +250,7 @@ export default {
       
       const options = {}
       try {
+        // 🔑 关键修复: 使用 try-catch 包装，捕获WebAssembly内存分配失败
         h265webPlayer[this._uid] = new window.new265webjs(url, Object.assign(
           {
             player: 'glplayer', // 播放器容器id
@@ -190,9 +267,36 @@ export default {
         ))
       } catch (e) {
         console.error('H265web播放器初始化失败:', e)
-        this.$message.error('H265web播放器初始化失败，请使用其他播放器')
+        
+        // 检查是否是WebAssembly内存错误
+        const errorMsg = e.message || e.toString() || ''
+        if (errorMsg.includes('WebAssembly.Memory') || errorMsg.includes('could not allocate memory') || errorMsg.includes('RangeError')) {
+          this.$message.error('内存不足，无法使用H265web播放器。建议：1. 关闭其他播放器 2. 刷新页面 3. 使用其他播放器（如WebRTC或FLV）')
+        } else {
+          this.$message.error('H265web播放器初始化失败，请使用其他播放器')
+        }
         this.playerLoading = false
+        // 触发错误事件，让父组件知道
+        this.$emit('error', e)
+        return
       }
+      
+      // 🔑 关键修复: 添加 unhandledrejection 事件监听，捕获异步WebAssembly错误
+      const unhandledRejectionHandler = (event) => {
+        const errorMsg = event.reason?.message || event.reason?.toString() || ''
+        if (errorMsg.includes('WebAssembly.Memory') || errorMsg.includes('could not allocate memory') || errorMsg.includes('RangeError')) {
+          console.error('[H265web] WebAssembly内存分配失败:', event.reason)
+          this.$message.error('内存不足，无法使用H265web播放器。建议：1. 关闭其他播放器 2. 刷新页面 3. 使用其他播放器（如WebRTC或FLV）')
+          this.playerLoading = false
+          this.$emit('error', event.reason)
+          event.preventDefault() // 阻止默认错误处理
+        }
+      }
+      
+      window.addEventListener('unhandledrejection', unhandledRejectionHandler)
+      
+      // 在组件销毁时移除监听器
+      this._unhandledRejectionHandler = unhandledRejectionHandler
       const h265web = h265webPlayer[this._uid]
       h265web.onOpenFullScreen = () => {
         this.fullscreen = true

@@ -3,6 +3,7 @@ package com.genersoft.iot.vmp.factory.controller;
 import com.genersoft.iot.vmp.common.StreamInfo;
 import com.genersoft.iot.vmp.conf.UserSetting;
 import com.genersoft.iot.vmp.conf.security.JwtUtils;
+import com.genersoft.iot.vmp.media.bean.MediaInfo;
 import com.genersoft.iot.vmp.media.bean.MediaServer;
 import com.genersoft.iot.vmp.media.service.IMediaServerService;
 import com.genersoft.iot.vmp.service.bean.ErrorCallback;
@@ -255,8 +256,17 @@ public class FactoryMonitorController {
                         streamInfo.setStream(streamInfo.getStream() + "_" + streamInfo.getMediaServer().getTranscodeSuffix());
                     }
 
-                    // 创建StreamContent但不包含mediaServer信息
-                    streamInfo.setMediaInfo(null);
+                    // 🔑 关键修复: 保留 MediaInfo，以便前端检查是否有视频轨道
+                    // 如果流只有音频没有视频，前端需要知道以便跳过 WebRTC（WebRTC 需要视频轨道）
+                    MediaInfo mediaInfo = streamInfo.getMediaInfo();
+                    if (mediaInfo != null) {
+                        String videoCodec = mediaInfo.getVideoCodec();
+                        if (videoCodec == null || videoCodec.isEmpty()) {
+                            log.warn("[厂区监控] 流 {}/{} 没有视频轨道（只有音频），WebRTC播放将失败，建议使用FLV协议", 
+                                    streamInfo.getApp(), streamInfo.getStream());
+                        }
+                    }
+                    
                     StreamContent streamContent = new StreamContent(streamInfo);
                     
                     wvpResult.setData(streamContent);

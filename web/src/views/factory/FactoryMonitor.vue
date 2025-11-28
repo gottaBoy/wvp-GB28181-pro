@@ -582,30 +582,19 @@ export default {
           hasPlayUrls: !!camera.playUrls
         })
         
-        // 情况1: 摄像头已在拉流且有播放地址 - 直接播放
+        // 情况1: 摄像头已在拉流且有播放地址 - 直接播放（只支持WebRTC）
         if (camera.pulling && camera.playUrls) {
-          console.log('[厂区监控] 摄像头已在拉流，直接使用播放地址')
+          console.log('[厂区监控] 摄像头已在拉流，检查WebRTC播放地址')
           
-          let videoUrl = null
-          let playType = null
-          
-          // 优先使用WebRTC，其次FLV
-          if (camera.playUrls.rtc) {
-            videoUrl = camera.playUrls.rtc
-            playType = 'WebRTC'
-          } else if (camera.playUrls.flv) {
-            videoUrl = camera.playUrls.flv
-            playType = 'FLV'
-          } else if (camera.playUrls.ws_flv) {
-            videoUrl = camera.playUrls.ws_flv
-            playType = 'WS-FLV'
-          } else if (camera.playUrls.hls) {
-            videoUrl = camera.playUrls.hls
-            playType = 'HLS'
-          }
-          
-          if (videoUrl) {
-            console.log(`[厂区监控] 直接播放(${playType}):`, videoUrl)
+          // 🔑 工厂监控只支持 WebRTC
+          if (!camera.playUrls.rtc) {
+            console.warn('[厂区监控] 摄像头已在拉流但没有WebRTC地址，需要重新启动拉流')
+            // 继续执行情况2，重新启动拉流
+          } else {
+            const videoUrl = camera.playUrls.rtc
+            const playType = 'WebRTC'
+            
+            console.log(`[厂区监控] 直接播放WebRTC:`, videoUrl)
             
             // 🔑 第二阶段: 设置URL，触发v-if和watch
             this.$set(this.playingVideos[camera.id], 'url', videoUrl)
@@ -613,7 +602,7 @@ export default {
             this.$set(this.playingVideos[camera.id], 'loading', false)
             
             if (!silent) {
-              this.$message.success(`${camera.name || camera.stream} 开始播放(${playType})`)
+              this.$message.success(`${camera.name || camera.stream} 开始播放(WebRTC)`)
             }
             
             // 释放API调用锁
@@ -665,35 +654,58 @@ export default {
           hasRtsp: !!streamInfo.rtsp
         })
 
-        // 优先使用WebRTC，其次FLV
-        let videoUrl = null
-        let playType = null
-        
-        // 后端返回的是字符串URL，不是对象
-        if (streamInfo.rtc) {
-          videoUrl = streamInfo.rtc
-          playType = 'WebRTC'
-        } else if (streamInfo.flv) {
-          videoUrl = streamInfo.flv
-          playType = 'FLV'
-        } else if (streamInfo.ws_flv) {
-          videoUrl = streamInfo.ws_flv
-          playType = 'WS-FLV'
-        } else if (streamInfo.hls) {
-          videoUrl = streamInfo.hls
-          playType = 'HLS'
-        } else if (streamInfo.rtmp) {
-          videoUrl = streamInfo.rtmp
-          playType = 'RTMP'
+        // 🔑 工厂监控只支持 WebRTC 播放
+        if (!streamInfo.rtc) {
+          console.error('[厂区监控] 未获取到WebRTC播放地址，流信息:', streamInfo)
+          throw new Error('未获取到WebRTC播放地址。可能原因：\n1. ZLMediaKit流媒体服务未启动\n2. WebRTC未启用\n3. 拉流代理未成功拉取RTSP流')
+        }
+
+        // 🔑 优化: 等待流激活（WebRTC必需）
+        const mediaInfo = streamInfo.mediaInfo
+        if (mediaInfo) {
+          console.log('[厂区监控] 流状态检查:', {
+            readerCount: mediaInfo.readerCount,
+            bytesSpeed: mediaInfo.bytesSpeed,
+            videoCodec: mediaInfo.videoCodec,
+            audioCodec: mediaInfo.audioCodec,
+            width: mediaInfo.width,
+            height: mediaInfo.height,
+            fps: mediaInfo.fps
+          })
+          
+          // 检查是否有视频轨道（WebRTC需要）
+          if (!mediaInfo.videoCodec || mediaInfo.videoCodec === '') {
+            throw new Error('流没有视频轨道，WebRTC无法播放。请检查摄像头配置')
+          }
+          
+          // 等待流激活
+          if (!mediaInfo.readerCount || mediaInfo.readerCount === 0) {
+            console.log('[厂区监控] WebRTC需要等待流激活，开始等待...')
+            if (!silent) {
+              this.$message.info('等待流激活中...')
+            }
+            
+            const streamActive = await this.waitForStreamActive(
+              streamInfo.app, 
+              streamInfo.stream, 
+              streamInfo.mediaServerId,
+              15000 // 最多等待15秒
+            )
+            
+            if (!streamActive) {
+              console.warn('[厂区监控] 流激活超时，但继续尝试WebRTC播放')
+            }
+          }
         }
         
-        if (!videoUrl) {
-          console.error('[厂区监控] 未找到可用的播放URL，流信息:', streamInfo)
-          console.error('[厂区监控] streamInfo所有字段:', Object.keys(streamInfo))
-          throw new Error('未获取到可用的播放地址。可能原因：\n1. ZLMediaKit流媒体服务未启动\n2. 拉流代理未成功拉取RTSP流\n3. 摄像头RTSP地址不可达')
-        }
+        const videoUrl = streamInfo.rtc
+        const playType = 'WebRTC'
         
-        console.log(`[厂区监控] 使用${playType}播放，URL:`, videoUrl)
+        console.log(`[厂区监控] 使用WebRTC播放，URL:`, videoUrl)
+        
+        // 🔑 优化: WebRTC需要额外延迟，确保流完全准备好
+        console.log('[厂区监控] WebRTC播放，延迟3秒确保流准备好')
+        await new Promise(resolve => setTimeout(resolve, 3000))
         
         // 🔑 第二阶段: 设置URL，触发v-if和组件mounted时的自动播放
         this.$set(this.playingVideos[camera.id], 'url', videoUrl)
@@ -777,6 +789,60 @@ export default {
         // 不自动重试，避免大量错误请求
         return false
       }
+    },
+
+    // 🔑 优化: 等待流激活（WebRTC专用）
+    async waitForStreamActive(app, stream, mediaServerId, maxWaitTime = 15000) {
+      const startTime = Date.now()
+      const checkInterval = 1000 // 每秒检查一次
+      
+      console.log('[厂区监控] 开始等待流激活（WebRTC）:', { app, stream, maxWaitTime })
+      
+      while (Date.now() - startTime < maxWaitTime) {
+        try {
+          // 调用后端API检查流状态
+          const response = await this.$http.get('/api/media/getMediaInfo', {
+            params: {
+              app: app,
+              stream: stream,
+              mediaServerId: mediaServerId
+            }
+          })
+          
+          if (response.data && response.data.code === 200) {
+            const mediaInfo = response.data.data
+            const readerCount = mediaInfo.readerCount || 0
+            const bytesSpeed = mediaInfo.bytesSpeed || 0
+            const hasVideo = mediaInfo.videoCodec && mediaInfo.videoCodec !== ''
+            const hasVideoParams = mediaInfo.width && mediaInfo.height && mediaInfo.fps
+            
+            console.log('[厂区监控] 流状态检查:', {
+              readerCount,
+              bytesSpeed,
+              hasVideo,
+              hasVideoParams,
+              videoCodec: mediaInfo.videoCodec,
+              width: mediaInfo.width,
+              height: mediaInfo.height,
+              fps: mediaInfo.fps
+            })
+            
+            // WebRTC 流已激活：必须有视频轨道、视频参数完整，且有数据流动
+            if (hasVideo && hasVideoParams && (readerCount > 0 || bytesSpeed > 0)) {
+              console.log('[厂区监控] WebRTC流已激活！')
+              return true
+            }
+          }
+        } catch (error) {
+          console.warn('[厂区监控] 检查流状态失败:', error)
+        }
+        
+        // 等待1秒再次检查
+        await new Promise(resolve => setTimeout(resolve, checkInterval))
+      }
+      
+      console.warn('[厂区监控] WebRTC流激活等待超时')
+      return false
     },
 
     // 停止单个摄像头

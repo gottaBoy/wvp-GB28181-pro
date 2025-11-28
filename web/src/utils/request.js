@@ -45,7 +45,7 @@ service.interceptors.response.use(
       return
     }
     const res = response.data
-    if (res.code && res.code !== 200) {
+    if (res.code && (res.code !== 200 && res.code !== 0)) {
       // 优化推流相关的错误提示
       let errorMsg = res.msg
       

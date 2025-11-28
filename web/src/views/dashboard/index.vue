@@ -72,10 +72,13 @@ export default {
     }
   },
   created() {
-    this.getSystemInfo()
-    this.getLoad()
-    this.getResourceInfo()
-    this.loopForSystemInfo()
+    // 延迟调用，确保组件已挂载
+    this.$nextTick(() => {
+      this.getSystemInfo()
+      this.getLoad()
+      this.getResourceInfo()
+      this.loopForSystemInfo()
+    })
   },
   destroyed() {
     window.clearImmediate(this.timer)
@@ -99,22 +102,54 @@ export default {
     getSystemInfo: function() {
       this.$store.dispatch('server/getSystemInfo')
         .then(data => {
-          this.$refs.consoleCPU.setData(data.cpu)
-          this.$refs.consoleMem.setData(data.mem)
-          this.$refs.consoleNet.setData(data.net, data.netTotal)
-          this.$refs.consoleDisk.setData(data.disk)
+          // 🔑 关键修复: 检查 ref 是否存在，避免 undefined 错误
+          if (this.$refs.consoleCPU && typeof this.$refs.consoleCPU.setData === 'function') {
+            this.$refs.consoleCPU.setData(data.cpu)
+          }
+          if (this.$refs.consoleMem && typeof this.$refs.consoleMem.setData === 'function') {
+            this.$refs.consoleMem.setData(data.mem)
+          }
+          if (this.$refs.consoleNet && typeof this.$refs.consoleNet.setData === 'function') {
+            this.$refs.consoleNet.setData(data.net, data.netTotal)
+          }
+          if (this.$refs.consoleDisk && typeof this.$refs.consoleDisk.setData === 'function') {
+            this.$refs.consoleDisk.setData(data.disk)
+          }
+        })
+        .catch(error => {
+          console.error('[Dashboard] 获取系统信息失败:', error)
         })
     },
     getLoad: function() {
       this.$store.dispatch('server/getMediaServerLoad')
         .then(data => {
-          this.$refs.consoleNodeLoad.setData(data)
+          // 🔑 关键修复: 检查 ref 是否存在，避免 undefined 错误
+          if (this.$refs.consoleNodeLoad && typeof this.$refs.consoleNodeLoad.setData === 'function') {
+            this.$refs.consoleNodeLoad.setData(data)
+          }
+        })
+        .catch(error => {
+          console.error('[Dashboard] 获取负载信息失败:', error)
         })
     },
     getResourceInfo: function() {
       this.$store.dispatch('server/getResourceInfo')
         .then(data => {
-          this.$refs.consoleResource.setData(data)
+          // 🔑 关键修复: 检查 ref 是否存在，避免 undefined 错误
+          if (this.$refs.consoleResource && typeof this.$refs.consoleResource.setData === 'function') {
+            this.$refs.consoleResource.setData(data)
+          } else {
+            console.warn('[Dashboard] consoleResource ref 未就绪，延迟重试')
+            // 如果组件未就绪，延迟重试
+            setTimeout(() => {
+              if (this.$refs.consoleResource && typeof this.$refs.consoleResource.setData === 'function') {
+                this.$refs.consoleResource.setData(data)
+              }
+            }, 100)
+          }
+        })
+        .catch(error => {
+          console.error('[Dashboard] 获取资源信息失败:', error)
         })
     }
   }
