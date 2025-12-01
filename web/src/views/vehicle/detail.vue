@@ -19,7 +19,7 @@
             <el-tag v-else type="info" size="mini">离线</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="名称">{{ vehicle.vehicleName || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="备注" :span="2">{{ vehicle.remark || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="备注" :span="2">{{ vehicle.description || '-' }}</el-descriptions-item>
         </el-descriptions>
       </el-card>
 

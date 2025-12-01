@@ -41,7 +41,7 @@ public class VehicleController {
     @Autowired
     private IVehicleService vehicleService;
 
-    @Operation(summary = "车辆注册", description = "车辆向WVP后端注册，包含车辆基本信息和相机列表")
+    @Operation(operationId ="registerVehicle", summary = "车辆注册", description = "车辆向WVP后端注册，包含车辆基本信息和相机列表")
     @PostMapping("/register")
     public WVPResult<Vehicle> registerVehicle(@RequestBody VehicleRegisterDTO registerDTO) {
         log.info("[车辆注册] 收到注册请求: vehicleId={}, vehicleName={}, ipAddress={}", 
@@ -73,7 +73,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "车辆心跳", description = "车辆定期发送心跳信息，保持在线状态")
+    @Operation(operationId ="heartbeat", summary = "车辆心跳", description = "车辆定期发送心跳信息，保持在线状态")
     @PostMapping("/{vehicleId}/heartbeat")
     public WVPResult<Void> heartbeat(
             @Parameter(description = "车辆ID", required = true) @PathVariable String vehicleId,
@@ -88,7 +88,7 @@ public class VehicleController {
         heartbeatDTO.setVehicleId(vehicleId);
 
         try {
-            boolean success = vehicleService.updateHeartbeat(vehicleId, heartbeatDTO);
+            boolean success = vehicleService.updateHeartbeat(heartbeatDTO);
             if (success) {
                 return WVPResult.<Void>success(null);
             } else {
@@ -100,7 +100,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "更新车辆信息", description = "更新车辆基本信息，IP地址只有在不为空时才会更新")
+    @Operation(operationId = "updateVehicle", summary = "更新车辆信息", description = "更新车辆基本信息，IP地址只有在不为空时才会更新")
     @PutMapping("/{vehicleId}")
     public WVPResult<Void> updateVehicle(
             @Parameter(description = "车辆ID", required = true) @PathVariable String vehicleId,
@@ -113,7 +113,8 @@ public class VehicleController {
         }
 
         try {
-            boolean success = vehicleService.updateVehicleInfo(vehicleId, updateDTO);
+            updateDTO.setVehicleId(vehicleId);
+            boolean success = vehicleService.updateVehicleInfo(updateDTO);
             if (success) {
                 return WVPResult.<Void>success(null);
             } else {
@@ -125,7 +126,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "更新车辆相机列表", description = "更新指定车辆的所有相机信息")
+    @Operation(operationId = "updateCameras", summary = "更新车辆相机列表", description = "更新指定车辆的所有相机信息")
     @PutMapping("/{vehicleId}/cameras")
     public WVPResult<Void> updateCameras(
             @Parameter(description = "车辆ID", required = true) @PathVariable String vehicleId,
@@ -155,7 +156,7 @@ public class VehicleController {
         camerasUpdateDTO.setVehicleId(vehicleId);
 
         try {
-            boolean success = vehicleService.updateCameras(vehicleId, camerasUpdateDTO);
+            boolean success = vehicleService.updateCameras(camerasUpdateDTO);
             if (success) {
                 return WVPResult.<Void>success(null);
             } else {
@@ -167,7 +168,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "查询车辆信息", description = "根据车辆ID查询车辆详细信息", security = {
+    @Operation(operationId = "getVehicle", summary = "查询车辆信息", description = "根据车辆ID查询车辆详细信息", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @GetMapping("/{vehicleId}")
@@ -195,7 +196,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "查询车辆相机列表", description = "查询指定车辆的所有相机", security = {
+    @Operation(operationId = "getCameras", summary = "查询车辆相机列表", description = "查询指定车辆的所有相机", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @GetMapping("/{vehicleId}/cameras")
@@ -232,7 +233,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "启动相机推流", description = "启动指定车辆的相机推流", security = {
+    @Operation(operationId = "startCameraStream", summary = "启动相机推流", description = "启动指定车辆的相机推流", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @PostMapping("/{vehicleId}/camera/{cameraId}/start")
@@ -261,7 +262,7 @@ public class VehicleController {
         return this.subscribeVehicleCameras(vehicleId, cameraIds);
     }
 
-    @Operation(summary = "停止相机推流", description = "停止指定车辆的相机推流", security = {
+    @Operation(operationId = "stopCameraStream", summary = "停止相机推流", description = "停止指定车辆的相机推流", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @PostMapping("/{vehicleId}/camera/{cameraId}/stop")
@@ -290,7 +291,7 @@ public class VehicleController {
         return this.unsubscribeVehicleCameras(vehicleId, cameraIds);
     }
 
-    @Operation(summary = "批量订阅相机", description = "向车辆端发送批量订阅相机指令", security = {
+    @Operation(operationId = "subscribeVehicleCameras", summary = "批量订阅相机", description = "向车辆端发送批量订阅相机指令", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @PostMapping("/{vehicleId}/cameras/subscribe")
@@ -331,7 +332,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "批量取消订阅相机", description = "向车辆端发送批量取消订阅相机指令", security = {
+    @Operation(operationId = "unsubscribeVehicleCameras", summary = "批量取消订阅相机", description = "向车辆端发送批量取消订阅相机指令", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @PostMapping("/{vehicleId}/cameras/unsubscribe")
@@ -357,7 +358,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "获取车辆已订阅相机", description = "从车辆端查询已订阅的相机列表", security = {
+    @Operation(operationId = "getVehicleSubscribedCameras", summary = "获取车辆已订阅相机", description = "从车辆端查询已订阅的相机列表", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @GetMapping("/{vehicleId}/cameras/subscribed")
@@ -378,7 +379,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "获取单个相机WebRTC播放链接", description = "获取指定车辆单个相机的WebRTC播放链接", security = {
+    @Operation(operationId = "getSingleCameraWebRTCUrl", summary = "获取单个相机WebRTC播放链接", description = "获取指定车辆单个相机的WebRTC播放链接", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @GetMapping("/{vehicleId}/camera/{cameraId}/webrtc/play")
@@ -404,7 +405,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "获取多个相机WebRTC播放链接", description = "通过查询参数获取多个相机的WebRTC播放链接", security = {
+    @Operation(operationId = "getMultipleCamerasWebRTCUrls", summary = "获取多个相机WebRTC播放链接", description = "通过查询参数获取多个相机的WebRTC播放链接", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @GetMapping("/{vehicleId}/cameras/webrtc/play")
@@ -438,7 +439,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "批量获取相机WebRTC播放链接", description = "通过POST请求体批量获取多个相机的WebRTC播放链接", security = {
+    @Operation(operationId = "batchGetVehicleCameraWebRTCUrls", summary = "批量获取相机WebRTC播放链接", description = "通过POST请求体批量获取多个相机的WebRTC播放链接", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @PostMapping("/{vehicleId}/cameras/webrtc/play")
@@ -473,7 +474,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "检查车辆连接", description = "检查与车辆端HTTP API的连接状态", security = {
+    @Operation(operationId = "checkVehicleConnection", summary = "检查车辆连接", description = "检查与车辆端HTTP API的连接状态", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @GetMapping("/{vehicleId}/connection/check")
@@ -494,7 +495,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "直接调用车辆端启动相机推流", description = "直接调用车辆端HTTP API启动相机推流，返回播放链接", security = {
+    @Operation(operationId = "directStartCameraStream", summary = "直接调用车辆端启动相机推流", description = "直接调用车辆端HTTP API启动相机推流，返回播放链接", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @PostMapping("/{vehicleId}/camera/{cameraId}/direct/start")
@@ -523,7 +524,7 @@ public class VehicleController {
         }
     }
 
-    @Operation(summary = "直接调用车辆端停止相机推流", description = "直接调用车辆端HTTP API停止相机推流", security = {
+    @Operation(operationId = "directStopCameraStream", summary = "直接调用车辆端停止相机推流", description = "直接调用车辆端HTTP API停止相机推流", security = {
             @SecurityRequirement(name = JwtUtils.HEADER),
             @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
     @PostMapping("/{vehicleId}/camera/{cameraId}/direct/stop")

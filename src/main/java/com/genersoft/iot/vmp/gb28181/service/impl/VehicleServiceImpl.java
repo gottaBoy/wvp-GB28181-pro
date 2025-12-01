@@ -21,7 +21,6 @@ import com.genersoft.iot.vmp.streamPush.service.IStreamPushService;
 import com.genersoft.iot.vmp.utils.DateUtil;
 import com.genersoft.iot.vmp.common.StreamInfo;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -29,6 +28,7 @@ import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Collections;
 import java.util.List;
@@ -42,25 +42,25 @@ import java.util.stream.Collectors;
 @Service
 public class VehicleServiceImpl implements IVehicleService {
 
-    @Autowired
+    @Resource
     private VehicleMapper vehicleMapper;
 
-    @Autowired
+    @Resource
     private IStreamPushService streamPushService;
 
-    @Autowired
+    @Resource
     private IStreamPushPlayService streamPushPlayService;
 
-    @Autowired
+    @Resource
     private StreamPushMapper streamPushMapper;
 
-    @Autowired
+    @Resource
     private IMediaServerService mediaServerService;
 
-    @Autowired
+    @Resource
     private UserSetting userSetting;
 
-    @Autowired
+    @Resource
     private IVehicleHttpClientService vehicleHttpClientService;
 
     private static final int DEFAULT_HTTP_API_PORT = 8081;
@@ -81,9 +81,10 @@ public class VehicleServiceImpl implements IVehicleService {
         
         log.debug("[车辆注册] 设置的IP地址: {}", vehicle.getIpAddress());
         vehicle.setStatus(StringUtils.hasText(registerDTO.getStatus()) ? registerDTO.getStatus() : "online");
-        vehicle.setRemark(registerDTO.getRemark());
-        vehicle.setLastHeartbeat(StringUtils.hasText(registerDTO.getLastHeartbeat()) 
-                ? registerDTO.getLastHeartbeat() : currentTime);
+        vehicle.setDescription(registerDTO.getDescription());
+//        vehicle.setLastHeartbeat(StringUtils.hasText(registerDTO.getLastHeartbeat())
+//                ? registerDTO.getLastHeartbeat() : currentTime);
+        vehicle.setLastHeartbeat(currentTime);
         vehicle.setRegisterTime(currentTime);
         vehicle.setCreateTime(currentTime);
         vehicle.setUpdateTime(currentTime);
@@ -99,7 +100,8 @@ public class VehicleServiceImpl implements IVehicleService {
                     registerDTO.getVehicleId(),
                     registerDTO.getVehicleName(),
                     vehicle.getStatus(),
-                    registerDTO.getRemark(),
+                    vehicle.getStatus(),
+                    registerDTO.getDescription(),
                     currentTime
             );
             log.info("[车辆注册] 车辆基本信息更新成功，IP地址保持不变: {}", registerDTO.getVehicleId());
@@ -115,112 +117,61 @@ public class VehicleServiceImpl implements IVehicleService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean updateHeartbeat(String vehicleId, VehicleHeartbeatDTO heartbeatDTO) {
-        log.debug("[车辆心跳] vehicleId: {}", vehicleId);
+    public boolean updateHeartbeat(VehicleHeartbeatDTO heartbeatDTO) {
+        log.debug("[车辆心跳] vehicleId: {}", heartbeatDTO.getVehicleId());
 
         String currentTime = DateUtil.getNow();
         // 收到心跳时，强制设置状态为在线
         String status = "online";
-        String lastHeartbeat = StringUtils.hasText(heartbeatDTO.getLastHeartbeat()) 
-                ? heartbeatDTO.getLastHeartbeat() : currentTime;
+//        String lastHeartbeat = StringUtils.hasText(heartbeatDTO.getLastHeartbeat())
+//                ? heartbeatDTO.getLastHeartbeat() : currentTime;
 
         // 先检查车辆是否存在以及当前状态
-        Vehicle existingVehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
-        
-        String ipAddress;
-        if (existingVehicle != null) {
-            // 车辆已存在，只有当传入的IP地址不为空时才更新IP地址
-            if (StringUtils.hasText(heartbeatDTO.getIpAddress())) {
-                ipAddress = heartbeatDTO.getIpAddress();
-                log.debug("[车辆心跳] 更新IP地址: vehicleId={}, 新IP={}, 原IP={}", 
-                         vehicleId, ipAddress, existingVehicle.getIpAddress());
-            } else {
-                // 保持原有IP地址不变
-                ipAddress = existingVehicle.getIpAddress();
-                log.debug("[车辆心跳] 保持原IP地址: vehicleId={}, IP={}", vehicleId, ipAddress);
-            }
-        } else {
-            // 新车辆，使用传入的IP地址或空字符串
-            ipAddress = StringUtils.hasText(heartbeatDTO.getIpAddress()) 
-                    ? heartbeatDTO.getIpAddress() : "";
-            log.debug("[车辆心跳] 新车辆IP地址: vehicleId={}, IP={}", vehicleId, ipAddress);
+        Vehicle existingVehicle = vehicleMapper.getVehicleByVehicleId(heartbeatDTO.getVehicleId());
+
+        if (existingVehicle == null || existingVehicle.getVehicleId() == null) {
+            // 车辆不存在
+            log.debug("[车辆心跳]: vehicleId={} 不存在", heartbeatDTO.getVehicleId());
+            return false;
         }
-        
-        int result = vehicleMapper.updateVehicleHeartbeat(vehicleId, ipAddress, status, lastHeartbeat, currentTime);
+        // 因为车上时间 和 服务器时间不一致，所以默认 lastHeartbeat = currentTime
+        int result = vehicleMapper.updateVehicleHeartbeat(heartbeatDTO.getVehicleId(), status, currentTime, currentTime);
         
         // 如果车辆之前是离线状态，记录上线日志
         if (existingVehicle != null && "offline".equals(existingVehicle.getStatus())) {
-            log.info("[车辆心跳] 车辆重新上线: vehicleId={}, ipAddress={}", vehicleId, ipAddress);
+            log.info("[车辆心跳] 车辆重新上线: vehicleId={}, ipAddress={}", heartbeatDTO.getLastHeartbeat(), existingVehicle.getIpAddress());
         }
         
         if (result > 0) {
-            log.debug("[车辆心跳] 更新成功: {}", vehicleId);
+            log.debug("[车辆心跳] 更新成功: {}", heartbeatDTO.getLastHeartbeat());
             return true;
         } else {
             // 车辆不存在，自动创建车辆
-            log.info("[车辆心跳] 车辆不存在，自动创建车辆: {}", vehicleId);
-            
-            Vehicle newVehicle = new Vehicle();
-            newVehicle.setVehicleId(vehicleId);
-            newVehicle.setVehicleName(vehicleId);
-            newVehicle.setIpAddress(ipAddress);
-            newVehicle.setStatus(status);
-            newVehicle.setLastHeartbeat(lastHeartbeat);
-            newVehicle.setRegisterTime(currentTime);
-            newVehicle.setCreateTime(currentTime);
-            newVehicle.setUpdateTime(currentTime);
-            
-            try {
-                vehicleMapper.insertVehicle(newVehicle);
-                log.info("[车辆心跳] 自动创建车辆成功: {}", vehicleId);
-                return true;
-            } catch (Exception e) {
-                log.error("[车辆心跳] 自动创建车辆失败: {}", vehicleId, e);
-                return false;
-            }
+            log.info("[车辆心跳] 车辆不存在，vehicleId: {}", heartbeatDTO.getLastHeartbeat());
+            return false;
         }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean updateCameras(String vehicleId, VehicleCamerasUpdateDTO camerasUpdateDTO) {
-        log.info("[更新相机列表] vehicleId: {}, cameraCount: {}", 
-                vehicleId, 
+    public boolean updateCameras(VehicleCamerasUpdateDTO camerasUpdateDTO) {
+        log.info("[更新相机列表] vehicleId: {}, cameraCount: {}",
+                camerasUpdateDTO.getVehicleId(),
                 camerasUpdateDTO.getCameras() != null ? camerasUpdateDTO.getCameras().size() : 0);
 
         String currentTime = DateUtil.getNow();
         
         // 验证车辆是否存在，如果不存在则自动创建
-        Vehicle vehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
+        Vehicle vehicle = vehicleMapper.getVehicleByVehicleId(camerasUpdateDTO.getVehicleId());
         if (vehicle == null) {
-            log.info("[更新相机列表] 车辆不存在，自动创建车辆: {}", vehicleId);
-            Vehicle newVehicle = new Vehicle();
-            newVehicle.setVehicleId(vehicleId);
-            newVehicle.setVehicleName("自动创建-" + vehicleId);
-            // 获取客户端IP地址，如果无法获取则设为空
-            String clientIp = getClientIpFromRequest();
-            newVehicle.setIpAddress(clientIp != null ? clientIp : "");
-            log.info("[更新相机列表] 自动创建车辆使用IP: {}", clientIp);
-            newVehicle.setStatus("online");
-            newVehicle.setLastHeartbeat(currentTime);
-            newVehicle.setRegisterTime(currentTime);
-            newVehicle.setCreateTime(currentTime);
-            newVehicle.setUpdateTime(currentTime);
-            
-            try {
-                vehicleMapper.insertVehicle(newVehicle);
-                vehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
-                log.info("[更新相机列表] 自动创建车辆成功: {}", vehicleId);
-            } catch (Exception e) {
-                log.error("[更新相机列表] 自动创建车辆失败: {}", vehicleId, e);
-                return false;
-            }
+            log.error("[更新相机列表] 车辆不存在, vehicleId: {}", camerasUpdateDTO.getVehicleId());
+            return false;
         }
 
-        updateVehicleCameras(vehicleId, camerasUpdateDTO.getCameras());
+        updateVehicleCameras(camerasUpdateDTO.getVehicleId(), camerasUpdateDTO.getCameras());
 
         // 只更新车辆的更新时间，不更新其他信息（特别是IP地址）
-        vehicleMapper.updateVehicleUpdateTime(vehicleId, currentTime);
+        vehicleMapper.updateVehicleUpdateTime(camerasUpdateDTO.getVehicleId(), currentTime);
 
         return true;
     }
@@ -1055,14 +1006,14 @@ public class VehicleServiceImpl implements IVehicleService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean updateVehicleInfo(String vehicleId, VehicleUpdateDTO updateDTO) {
-        log.info("[更新车辆信息] vehicleId={}, vehicleName={}, ipAddress={}, status={}", 
-                vehicleId, updateDTO.getVehicleName(), updateDTO.getIpAddress(), updateDTO.getStatus());
+    public boolean updateVehicleInfo(VehicleUpdateDTO updateDTO) {
+        log.info("[更新车辆信息] vehicleId={}, vehicleName={}, ipAddress={}, status={}",
+                updateDTO.getVehicleId(), updateDTO.getVehicleName(), updateDTO.getIpAddress(), updateDTO.getStatus());
 
         // 检查车辆是否存在
-        Vehicle existingVehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
+        Vehicle existingVehicle = vehicleMapper.getVehicleByVehicleId(updateDTO.getVehicleId());
         if (existingVehicle == null) {
-            log.warn("[更新车辆信息] 车辆不存在: {}", vehicleId);
+            log.warn("[更新车辆信息] 车辆不存在: {}", updateDTO.getVehicleId());
             return false;
         }
 
@@ -1073,36 +1024,35 @@ public class VehicleServiceImpl implements IVehicleService {
                 ? updateDTO.getVehicleName() : existingVehicle.getVehicleName();
         String status = StringUtils.hasText(updateDTO.getStatus()) 
                 ? updateDTO.getStatus() : existingVehicle.getStatus();
-        String remark = updateDTO.getRemark() != null 
-                ? updateDTO.getRemark() : existingVehicle.getRemark();
+        String description = updateDTO.getDescription() != null
+                ? updateDTO.getDescription() : existingVehicle.getDescription();
 
         try {
             // 检查是否需要更新IP地址
             if (StringUtils.hasText(updateDTO.getIpAddress())) {
                 // IP地址不为空，更新包括IP地址在内的所有信息
-                log.info("[更新车辆信息] 更新IP地址: vehicleId={}, 原IP={}, 新IP={}", 
-                        vehicleId, existingVehicle.getIpAddress(), updateDTO.getIpAddress());
+                log.info("[更新车辆信息] 更新IP地址: vehicleId={}, 原IP={}, 新IP={}",
+                        updateDTO.getVehicleId(), existingVehicle.getIpAddress(), updateDTO.getIpAddress());
                         
                 int result = vehicleMapper.updateVehicleHeartbeat(
-                        vehicleId, 
-                        updateDTO.getIpAddress(), 
+                        updateDTO.getVehicleId(),
                         status, 
                         existingVehicle.getLastHeartbeat(), 
                         currentTime);
                         
                 if (result > 0) {
                     // 如果IP地址更新成功，还需要更新其他基本信息
-                    vehicleMapper.updateVehicleBasicInfo(vehicleId, vehicleName, status, remark, currentTime);
+                    vehicleMapper.updateVehicleBasicInfo(updateDTO.getVehicleId(), vehicleName, status, currentTime, description, currentTime);
                 }
                 return result > 0;
             } else {
                 // IP地址为空，只更新基本信息，不修改IP地址
-                log.info("[更新车辆信息] 不更新IP地址，仅更新基本信息: vehicleId={}", vehicleId);
-                int result = vehicleMapper.updateVehicleBasicInfo(vehicleId, vehicleName, status, remark, currentTime);
+                log.info("[更新车辆信息] 不更新IP地址，仅更新基本信息: vehicleId={}", updateDTO.getVehicleId());
+                int result = vehicleMapper.updateVehicleBasicInfo(updateDTO.getVehicleId(), vehicleName, status, currentTime, description, currentTime);
                 return result > 0;
             }
         } catch (Exception e) {
-            log.error("[更新车辆信息] 更新异常: vehicleId={}", vehicleId, e);
+            log.error("[更新车辆信息] 更新异常: vehicleId={}", updateDTO.getVehicleId(), e);
             return false;
         }
     }

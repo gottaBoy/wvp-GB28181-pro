@@ -11,6 +11,9 @@ import lombok.Data;
 @Schema(description = "车辆信息更新请求")
 public class VehicleUpdateDTO {
 
+    @Schema(description = "车辆ID")
+    private String vehicleId;
+
     @Schema(description = "车辆名称")
     private String vehicleName;
 
@@ -21,5 +24,5 @@ public class VehicleUpdateDTO {
     private String status;
 
     @Schema(description = "备注")
-    private String remark;
+    private String description;
 }

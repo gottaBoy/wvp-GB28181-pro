@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS wvp_vehicle
     ip_address          VARCHAR(50),           -- IP地址
     status              VARCHAR(20) DEFAULT 'offline',  -- 状态：online/offline
     vehicle_name        VARCHAR(255),          -- 名称
-    remark              VARCHAR(500),         -- 备注
+    description         VARCHAR(500),         -- 备注
     last_heartbeat      VARCHAR(50),          -- 最后心跳时间
     register_time       VARCHAR(50),          -- 注册时间
     create_time         VARCHAR(50) NOT NULL,  -- 创建时间

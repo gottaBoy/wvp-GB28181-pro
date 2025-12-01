@@ -25,19 +25,17 @@ public interface IVehicleService {
 
     /**
      * 更新车辆心跳
-     * @param vehicleId 车辆ID
      * @param heartbeatDTO 心跳信息
      * @return 是否成功
      */
-    boolean updateHeartbeat(String vehicleId, VehicleHeartbeatDTO heartbeatDTO);
+    boolean updateHeartbeat(VehicleHeartbeatDTO heartbeatDTO);
 
     /**
      * 更新车辆相机列表
-     * @param vehicleId 车辆ID
      * @param camerasUpdateDTO 相机列表更新信息
      * @return 是否成功
      */
-    boolean updateCameras(String vehicleId, VehicleCamerasUpdateDTO camerasUpdateDTO);
+    boolean updateCameras(VehicleCamerasUpdateDTO camerasUpdateDTO);
 
     /**
      * 根据车辆ID查询车辆信息
@@ -140,10 +138,9 @@ public interface IVehicleService {
     /**
      * 更新车辆基本信息
      * IP地址只有在不为空时才会更新，避免意外清空IP地址
-     * @param vehicleId 车辆ID
      * @param updateDTO 更新信息
      * @return 是否成功
      */
-    boolean updateVehicleInfo(String vehicleId, VehicleUpdateDTO updateDTO);
+    boolean updateVehicleInfo(VehicleUpdateDTO updateDTO);
 }
 

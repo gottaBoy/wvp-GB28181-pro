@@ -60,9 +60,9 @@
           <span>{{ scope.row.vehicleName || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="remark" label="备注" min-width="200">
+      <el-table-column prop="description" label="备注" min-width="200">
         <template v-slot:default="scope">
-          <span>{{ scope.row.remark || '-' }}</span>
+          <span>{{ scope.row.description || '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" min-width="280" fixed="right">

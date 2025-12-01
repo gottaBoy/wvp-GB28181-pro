@@ -64,8 +64,8 @@ public class VehicleRegisterDTO {
     private String status;
 
     @Schema(description = "备注")
-    @JsonProperty("remark")
-    private String remark;
+    @JsonProperty("description")
+    private String description;
 
     @Schema(description = "最后心跳时间")
     @JsonProperty("lastHeartbeat")

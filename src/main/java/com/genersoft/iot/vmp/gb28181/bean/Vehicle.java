@@ -29,7 +29,7 @@ public class Vehicle {
     private String status;
 
     @Schema(description = "备注")
-    private String remark;
+    private String description;
 
     @Schema(description = "最后心跳时间")
     private String lastHeartbeat;

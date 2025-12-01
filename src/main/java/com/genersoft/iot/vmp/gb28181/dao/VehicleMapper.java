@@ -18,7 +18,7 @@ public interface VehicleMapper {
     /**
      * 根据车辆ID查询车辆信息
      */
-    @Select("SELECT id, vehicle_id, vehicle_name, ip_address, status, remark, last_heartbeat, " +
+    @Select("SELECT id, vehicle_id, vehicle_name, ip_address, status, description, last_heartbeat, " +
             "register_time, create_time, update_time " +
             "FROM wvp_vehicle WHERE vehicle_id = #{vehicleId}")
     Vehicle getVehicleByVehicleId(@Param("vehicleId") String vehicleId);
@@ -26,9 +26,9 @@ public interface VehicleMapper {
     /**
      * 插入车辆信息
      */
-    @Insert("INSERT INTO wvp_vehicle (vehicle_id, vehicle_name, ip_address, status, remark, " +
+    @Insert("INSERT INTO wvp_vehicle (vehicle_id, vehicle_name, ip_address, status, description, " +
             "last_heartbeat, register_time, create_time, update_time) " +
-            "VALUES (#{vehicleId}, #{vehicleName}, #{ipAddress}, #{status}, #{remark}, " +
+            "VALUES (#{vehicleId}, #{vehicleName}, #{ipAddress}, #{status}, #{description}, " +
             "#{lastHeartbeat}, #{registerTime}, #{createTime}, #{updateTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertVehicle(Vehicle vehicle);
@@ -39,7 +39,7 @@ public interface VehicleMapper {
      * 通常情况下应使用 updateVehicleBasicInfo() 或 updateVehicleHeartbeat()
      */
     @Update("UPDATE wvp_vehicle SET vehicle_name = #{vehicleName}, ip_address = #{ipAddress}, " +
-            "status = #{status}, remark = #{remark}, last_heartbeat = #{lastHeartbeat}, " +
+            "status = #{status}, description = #{description}, last_heartbeat = #{lastHeartbeat}, " +
             "update_time = #{updateTime} WHERE vehicle_id = #{vehicleId}")
     int updateVehicle(Vehicle vehicle);
 
@@ -47,11 +47,12 @@ public interface VehicleMapper {
      * 更新车辆基本信息（不包含IP地址，IP地址只能通过心跳更新）
      */
     @Update("UPDATE wvp_vehicle SET vehicle_name = #{vehicleName}, status = #{status}, " +
-            "remark = #{remark}, update_time = #{updateTime} WHERE vehicle_id = #{vehicleId}")
+            "last_heartbeat = #{lastHeartbeat}, description = #{description}, update_time = #{updateTime} WHERE vehicle_id = #{vehicleId}")
     int updateVehicleBasicInfo(@Param("vehicleId") String vehicleId,
                                @Param("vehicleName") String vehicleName,
                                @Param("status") String status,
-                               @Param("remark") String remark,
+                               @Param("lastHeartbeat") String lastHeartbeat,
+                               @Param("description") String description,
                                @Param("updateTime") String updateTime);
 
     /**
@@ -63,11 +64,10 @@ public interface VehicleMapper {
     /**
      * 更新车辆心跳信息（只有心跳可以更新IP地址）
      */
-    @Update("UPDATE wvp_vehicle SET ip_address = #{ipAddress}, status = #{status}, " +
+    @Update("UPDATE wvp_vehicle SET status = #{status}, " +
             "last_heartbeat = #{lastHeartbeat}, update_time = #{updateTime} " +
             "WHERE vehicle_id = #{vehicleId}")
     int updateVehicleHeartbeat(@Param("vehicleId") String vehicleId,
-                               @Param("ipAddress") String ipAddress,
                                @Param("status") String status,
                                @Param("lastHeartbeat") String lastHeartbeat,
                                @Param("updateTime") String updateTime);
@@ -143,14 +143,14 @@ public interface VehicleMapper {
     /**
      * 查询所有车辆列表
      */
-    @Select("SELECT id, vehicle_id, vehicle_name, ip_address, status, remark, last_heartbeat, " +
+    @Select("SELECT id, vehicle_id, vehicle_name, ip_address, status, description, last_heartbeat, " +
             "register_time, create_time, update_time FROM wvp_vehicle ORDER BY create_time DESC")
     List<Vehicle> getAllVehicles();
 
     /**
      * 查询心跳超时的车辆（状态为在线但1分钟内无心跳的车辆）
      */
-    @Select("SELECT id, vehicle_id, vehicle_name, ip_address, status, remark, last_heartbeat, " +
+    @Select("SELECT id, vehicle_id, vehicle_name, ip_address, status, description, last_heartbeat, " +
             "register_time, create_time, update_time FROM wvp_vehicle " +
             "WHERE status = 'online' AND (last_heartbeat IS NULL OR " +
             "TIMESTAMPDIFF(SECOND, STR_TO_DATE(last_heartbeat, '%Y-%m-%d %H:%i:%s'), NOW()) > #{timeoutSeconds})")
