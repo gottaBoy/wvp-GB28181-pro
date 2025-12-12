@@ -11,8 +11,8 @@ services:
       start_period: 10s
     networks:
       - media-net
-    # ports:
-    #   - 6379:6379
+    ports:
+      - 6379:6379
     volumes:
       - ./redis/conf/redis.conf:/opt/polaris/redis/redis.conf
       - ./volumes/redis/data/:/data
@@ -161,7 +161,31 @@ services:
       Stream_IP: ${Stream_IP}
     networks:
       - media-net
-      
+  zlmexporter:
+    # 优先使用预构建镜像，如果不可用则使用本地构建
+    image: harbor.intra.zeron.ai/library/zlmexporter:2025-09-11
+    restart: unless-stopped
+    networks:
+      - media-net
+    ports:
+      - "9091:9091"  # Exporter metrics端口
+    environment:
+      # ZLMediaKit API地址（使用服务名，因为在同一网络）
+      - ZLM_API_URL=http://polaris-media:80/index/api
+      # ZLMediaKit API密钥（从config.ini中获取）
+      - ZLM_API_SECRET=su6TiedN2rVAmBbIDX0aa0QTiBJLBdcf
+      # Exporter监听端口
+      - EXPORTER_PORT=9091
+      # 采集间隔（秒）
+      - SCRAPE_INTERVAL=10
+    depends_on:
+      - polaris-media
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9091/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s    
 networks:
   media-net:
     driver: bridge
