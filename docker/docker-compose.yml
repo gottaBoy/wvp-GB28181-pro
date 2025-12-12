@@ -175,7 +175,7 @@ services:
       # ZLMediaKit API密钥（从config.ini中获取）
       - ZLM_API_SECRET=su6TiedN2rVAmBbIDX0aa0QTiBJLBdcf
       # Exporter监听端口
-      - ZLM_EXPORTER_TELEMETRY_ADDRESS=9091
+      - ZLM_EXPORTER_TELEMETRY_ADDRESS=:9091
       - ZLM_EXPORTER_TELEMETRY_PATH=/metrics
       - ZLM_EXPORTER_SSL_VERIFY=true
       # 采集间隔（秒）
