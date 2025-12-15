@@ -154,6 +154,12 @@ export const constantRoutes = [
         meta: { title: '厂区监控', icon: 'el-icon-office-building' }
       },
       {
+        path: '/factory/group',
+        name: 'FactoryGroupManage',
+        component: () => import('@/views/factory/GroupManage'),
+        meta: { title: '分组管理', icon: 'el-icon-folder-opened' }
+      },
+      {
         path: '/vehicle/logs',
         name: 'VehicleLogs',
         component: () => import('@/views/vehicle/LogViewer'),

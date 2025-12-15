@@ -15,12 +15,13 @@ export function getFactoryListSummary() {
 /**
  * 获取厂区下的所有摄像头
  * @param {string} app - 厂区应用名
+ * @param {boolean} groupByWarehouse - 是否按分组显示
  */
-export function getFactoryCameras(app) {
+export function getFactoryCameras(app, groupByWarehouse = false) {
   return request({
     method: 'get',
     url: '/api/factory/cameras',
-    params: { app }
+    params: { app, groupByWarehouse }
   })
 }
 
@@ -69,5 +70,95 @@ export function batchStopCameras(ids) {
     method: 'post',
     url: '/api/factory/cameras/batch/stop',
     data: { ids }
+  })
+}
+
+// ==================== 分组管理API ====================
+
+/**
+ * 获取厂区的所有分组
+ * @param {string} app - 厂区应用名
+ */
+export function getFactoryGroups(app) {
+  return request({
+    method: 'get',
+    url: '/api/factory/groups',
+    params: { app }
+  })
+}
+
+/**
+ * 添加分组
+ * @param {Object} group - 分组信息 {name, description, app, sortOrder}
+ */
+export function addFactoryGroup(group) {
+  return request({
+    method: 'post',
+    url: '/api/factory/groups',
+    data: group
+  })
+}
+
+/**
+ * 更新分组
+ * @param {Object} group - 分组信息 {id, name, description, sortOrder}
+ */
+export function updateFactoryGroup(group) {
+  return request({
+    method: 'put',
+    url: '/api/factory/groups',
+    data: group
+  })
+}
+
+/**
+ * 删除分组
+ * @param {number} id - 分组ID
+ */
+export function deleteFactoryGroup(id) {
+  return request({
+    method: 'delete',
+    url: `/api/factory/groups/${id}`
+  })
+}
+
+/**
+ * 将拉流代理添加到分组
+ * @param {number} groupId - 分组ID
+ * @param {string} app - 拉流代理应用名
+ * @param {string} stream - 拉流代理流ID
+ */
+export function addProxyToGroup(groupId, app, stream) {
+  return request({
+    method: 'post',
+    url: `/api/factory/groups/${groupId}/proxies`,
+    params: { app, stream }
+  })
+}
+
+/**
+ * 从分组中移除拉流代理
+ * @param {number} groupId - 分组ID
+ * @param {string} app - 拉流代理应用名
+ * @param {string} stream - 拉流代理流ID
+ */
+export function removeProxyFromGroup(groupId, app, stream) {
+  return request({
+    method: 'delete',
+    url: `/api/factory/groups/${groupId}/proxies`,
+    params: { app, stream }
+  })
+}
+
+/**
+ * 批量将拉流代理添加到分组
+ * @param {number} groupId - 分组ID
+ * @param {Array} proxies - 拉流代理数组 [{app, stream}, ...]
+ */
+export function batchAddProxyToGroup(groupId, proxies) {
+  return request({
+    method: 'post',
+    url: `/api/factory/groups/${groupId}/proxies/batch`,
+    data: { proxies }
   })
 }

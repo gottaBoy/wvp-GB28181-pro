@@ -8,6 +8,10 @@ import com.genersoft.iot.vmp.media.bean.MediaServer;
 import com.genersoft.iot.vmp.media.service.IMediaServerService;
 import com.genersoft.iot.vmp.service.bean.ErrorCallback;
 import com.genersoft.iot.vmp.service.bean.InviteErrorCode;
+import com.genersoft.iot.vmp.factory.bean.FactoryGroup;
+import com.genersoft.iot.vmp.factory.bean.FactoryGroupProxy;
+import com.genersoft.iot.vmp.factory.dao.FactoryGroupProxyMapper;
+import com.genersoft.iot.vmp.factory.service.IFactoryGroupService;
 import com.genersoft.iot.vmp.streamProxy.bean.StreamProxy;
 import com.genersoft.iot.vmp.streamProxy.service.IStreamProxyPlayService;
 import com.genersoft.iot.vmp.streamProxy.service.IStreamProxyService;
@@ -31,6 +35,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 /**
  * 厂区监控接口
@@ -52,6 +57,12 @@ public class FactoryMonitorController {
 
     @Autowired
     private UserSetting userSetting;
+
+    @Autowired
+    private IFactoryGroupService factoryGroupService;
+
+    @Autowired
+    private FactoryGroupProxyMapper factoryGroupProxyMapper;
 
     // 流ID到名称的映射
     private static final Map<String, String> STREAM_NAME_MAP = new HashMap<String, String>() {{
@@ -125,7 +136,8 @@ public class FactoryMonitorController {
     @GetMapping(value = "/cameras")
     @ResponseBody
     public WVPResult<List<Map<String, Object>>> getFactoryCameras(
-            @Parameter(description = "厂区应用名") @RequestParam String app) {
+            @Parameter(description = "厂区应用名") @RequestParam String app,
+            @Parameter(description = "是否按分组显示") @RequestParam(required = false, defaultValue = "false") Boolean groupByWarehouse) {
         try {
             if (!StringUtils.hasText(app)) {
                 return WVPResult.fail(-1, "厂区应用名不能为空");
@@ -135,19 +147,60 @@ public class FactoryMonitorController {
             PageInfo<StreamProxy> pageInfo = streamProxyService.getAll(1, 10000, null, null, null);
             List<StreamProxy> allProxies = pageInfo.getList();
             
-            // 筛选指定app的拉流代理，并按ID排序
-            List<Map<String, Object>> cameras = allProxies.stream()
+            // 筛选指定app的拉流代理，并按ID排序（先过滤再查询，减少数据量）
+            List<StreamProxy> filteredProxies = allProxies.stream()
                 .filter(proxy -> app.equals(proxy.getApp()))
-                .sorted(Comparator.comparingInt(StreamProxy::getId)) // 按ID从小到大排序
+                .sorted(Comparator.comparingInt(StreamProxy::getId))
+                .collect(Collectors.toList());
+            
+            // 如果该厂区没有拉流代理，直接返回空列表
+            if (filteredProxies.isEmpty()) {
+                log.debug("厂区 {} 没有拉流代理", app);
+                return WVPResult.success(groupByWarehouse != null && groupByWarehouse 
+                    ? new ArrayList<>() 
+                    : new ArrayList<>());
+            }
+            
+            // 获取所有分组信息（用于分组显示）
+            List<FactoryGroup> groups = factoryGroupService.getByApp(app);
+            Map<Integer, FactoryGroup> groupMap = groups.stream()
+                .collect(Collectors.toMap(FactoryGroup::getId, g -> g, (existing, replacement) -> existing));
+            
+            // 获取所有拉流代理的分组关联（只查询当前app的关联）
+            List<FactoryGroupProxy> groupProxies = factoryGroupProxyMapper.selectByApp(app);
+            Map<String, Integer> proxyGroupMap = groupProxies.stream()
+                .collect(Collectors.toMap(
+                    gp -> gp.getApp() + ":" + gp.getStream(),
+                    FactoryGroupProxy::getGroupId,
+                    (existing, replacement) -> existing // 如果有重复，保留第一个
+                ));
+            
+            // 构建摄像头列表
+            List<Map<String, Object>> cameras = filteredProxies.stream()
                 .map(proxy -> {
                     Map<String, Object> camera = new HashMap<>();
                     camera.put("id", proxy.getId());
                     camera.put("stream", proxy.getStream());
 
-                    camera.put("name", proxy.getName() != null ? proxy.getName() : getStreamName(proxy.getStream()));
+                    String fullName = proxy.getName() != null ? proxy.getName() : getStreamName(proxy.getStream());
+                    camera.put("name", fullName);
                     camera.put("app", proxy.getApp());
                     camera.put("pulling", proxy.getPulling() != null ? proxy.getPulling() : false);
                     camera.put("enable", proxy.isEnable());
+                    
+                    // 从数据库获取分组信息
+                    String key = proxy.getApp() + ":" + proxy.getStream();
+                    Integer groupId = proxyGroupMap.get(key);
+                    if (groupId != null && groupMap.containsKey(groupId)) {
+                        FactoryGroup group = groupMap.get(groupId);
+                        camera.put("groupId", groupId);
+                        camera.put("groupName", group.getName());
+                    } else {
+                        // 如果没有分组，使用默认值
+                        camera.put("groupId", 0);
+                        camera.put("groupName", "未分组");
+                    }
+                    camera.put("name", fullName); // 摄像头名称始终使用完整名称
                     
                     // 如果正在拉流，生成播放地址
                     if (proxy.getPulling() != null && proxy.getPulling() && StringUtils.hasText(proxy.getMediaServerId())) {
@@ -158,7 +211,6 @@ public class FactoryMonitorController {
                         if (mediaServer != null) {
                             String streamIp = mediaServer.getStreamIp();
                             int httpPort = mediaServer.getHttpPort();
-                            int httpSslPort = mediaServer.getHttpSSlPort();
                             int rtmpPort = mediaServer.getRtmpPort();
                             int rtspPort = mediaServer.getRtspPort();
                             
@@ -204,6 +256,47 @@ public class FactoryMonitorController {
                 })
                 .collect(Collectors.toList());
             
+            // 如果要求按分组显示，则返回分组后的数据结构
+            if (groupByWarehouse != null && groupByWarehouse) {
+                // 按groupId分组
+                Map<Integer, List<Map<String, Object>>> groupedByGroupId = cameras.stream()
+                    .collect(Collectors.groupingBy(
+                        camera -> {
+                            Integer gid = (Integer) camera.get("groupId");
+                            return gid != null ? gid : 0;
+                        },
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                    ));
+                
+                // 转换为前端需要的格式
+                List<Map<String, Object>> groupedList = groupedByGroupId.entrySet().stream()
+                    .map(entry -> {
+                        Map<String, Object> group = new HashMap<>();
+                        Integer groupId = entry.getKey();
+                        List<Map<String, Object>> groupCameras = entry.getValue();
+                        
+                        group.put("groupId", groupId);
+                        // 获取分组名称（从第一个摄像头获取，同一分组下的摄像头groupName相同）
+                        String groupName = groupCameras.isEmpty() 
+                            ? "未分组" 
+                            : (String) groupCameras.get(0).get("groupName");
+                        group.put("groupName", groupName);
+                        group.put("cameras", groupCameras);
+                        group.put("count", groupCameras.size());
+                        return group;
+                    })
+                    .sorted(Comparator.comparing((Map<String, Object> g) -> {
+                        Integer groupId = (Integer) g.get("groupId");
+                        // groupId为0（未分组）排在最后
+                        return groupId != null && groupId == 0 ? 1 : 0;
+                    }).thenComparing(g -> (String) g.get("groupName")))
+                    .collect(Collectors.toList());
+                
+                log.info("获取厂区 {} 的摄像头列表，共 {} 个，按分组为 {} 组", app, cameras.size(), groupedList.size());
+                return WVPResult.success(groupedList);
+            }
+            
             log.info("获取厂区 {} 的摄像头列表，共 {} 个，按ID排序", app, cameras.size());
             return WVPResult.success(cameras);
         } catch (Exception e) {
@@ -211,6 +304,7 @@ public class FactoryMonitorController {
             return WVPResult.fail(-1, "获取摄像头列表失败: " + e.getMessage());
         }
     }
+
 
     /**
      * 获取厂区名称
@@ -239,7 +333,8 @@ public class FactoryMonitorController {
 
         ErrorCallback<StreamInfo> callback = (code, msg, streamInfo) -> {
             if (code == InviteErrorCode.SUCCESS.getCode()) {
-                WVPResult<StreamContent> wvpResult = WVPResult.success();
+                @SuppressWarnings("unchecked")
+                WVPResult<StreamContent> wvpResult = (WVPResult<StreamContent>) WVPResult.success();
                 if (streamInfo != null) {
                     if (userSetting.getUseSourceIpAsStreamIp()) {
                         streamInfo = streamInfo.clone(); // 深拷贝
@@ -366,5 +461,164 @@ public class FactoryMonitorController {
         result.put("fail", failCount);
 
         return WVPResult.success(result);
+    }
+
+    // ==================== 分组管理API ====================
+
+    @Operation(summary = "获取厂区的所有分组", security = {
+            @SecurityRequirement(name = JwtUtils.HEADER),
+            @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
+    @GetMapping(value = "/groups")
+    @ResponseBody
+    public WVPResult<List<FactoryGroup>> getGroups(
+            @Parameter(description = "厂区应用名") @RequestParam String app) {
+        try {
+            if (!StringUtils.hasText(app)) {
+                return WVPResult.fail(-1, "厂区应用名不能为空");
+            }
+            List<FactoryGroup> groups = factoryGroupService.getByApp(app);
+            return WVPResult.success(groups);
+        } catch (Exception e) {
+            log.error("获取分组列表失败", e);
+            return WVPResult.fail(-1, "获取分组列表失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "添加分组", security = {
+            @SecurityRequirement(name = JwtUtils.HEADER),
+            @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
+    @PostMapping(value = "/groups")
+    @ResponseBody
+    public WVPResult<FactoryGroup> addGroup(@RequestBody FactoryGroup group) {
+        try {
+            if (!StringUtils.hasText(group.getApp())) {
+                return WVPResult.fail(-1, "厂区应用名不能为空");
+            }
+            if (!StringUtils.hasText(group.getName())) {
+                return WVPResult.fail(-1, "分组名称不能为空");
+            }
+            FactoryGroup result = factoryGroupService.add(group);
+            return WVPResult.success(result);
+        } catch (Exception e) {
+            log.error("添加分组失败", e);
+            return WVPResult.fail(-1, "添加分组失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "更新分组", security = {
+            @SecurityRequirement(name = JwtUtils.HEADER),
+            @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
+    @PutMapping(value = "/groups")
+    @ResponseBody
+    public WVPResult<FactoryGroup> updateGroup(@RequestBody FactoryGroup group) {
+        try {
+            if (group.getId() == null) {
+                return WVPResult.fail(-1, "分组ID不能为空");
+            }
+            FactoryGroup result = factoryGroupService.update(group);
+            return WVPResult.success(result);
+        } catch (Exception e) {
+            log.error("更新分组失败", e);
+            return WVPResult.fail(-1, "更新分组失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "删除分组", security = {
+            @SecurityRequirement(name = JwtUtils.HEADER),
+            @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
+    @DeleteMapping(value = "/groups/{id}")
+    @ResponseBody
+    public WVPResult<String> deleteGroup(@PathVariable Integer id) {
+        try {
+            factoryGroupService.delete(id);
+            return WVPResult.success("删除成功");
+        } catch (Exception e) {
+            log.error("删除分组失败", e);
+            return WVPResult.fail(-1, "删除分组失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "将拉流代理添加到分组", security = {
+            @SecurityRequirement(name = JwtUtils.HEADER),
+            @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
+    @PostMapping(value = "/groups/{groupId}/proxies")
+    @ResponseBody
+    public WVPResult<String> addProxyToGroup(
+            @PathVariable Integer groupId,
+            @RequestParam String app,
+            @RequestParam String stream) {
+        try {
+            factoryGroupService.addProxyToGroup(groupId, app, stream);
+            return WVPResult.success("添加成功");
+        } catch (Exception e) {
+            log.error("添加拉流代理到分组失败", e);
+            return WVPResult.fail(-1, "添加失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "从分组中移除拉流代理", security = {
+            @SecurityRequirement(name = JwtUtils.HEADER),
+            @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
+    @DeleteMapping(value = "/groups/{groupId}/proxies")
+    @ResponseBody
+    public WVPResult<String> removeProxyFromGroup(
+            @PathVariable Integer groupId,
+            @RequestParam String app,
+            @RequestParam String stream) {
+        try {
+            factoryGroupService.removeProxyFromGroup(groupId, app, stream);
+            return WVPResult.success("移除成功");
+        } catch (Exception e) {
+            log.error("从分组中移除拉流代理失败", e);
+            return WVPResult.fail(-1, "移除失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "批量将拉流代理添加到分组", security = {
+            @SecurityRequirement(name = JwtUtils.HEADER),
+            @SecurityRequirement(name = JwtUtils.API_KEY_HEADER)})
+    @PostMapping(value = "/groups/{groupId}/proxies/batch")
+    @ResponseBody
+    public WVPResult<Map<String, Object>> batchAddProxyToGroup(
+            @PathVariable Integer groupId,
+            @RequestBody Map<String, Object> params) {
+        try {
+            @SuppressWarnings("unchecked")
+            List<Map<String, String>> proxies = (List<Map<String, String>>) params.get("proxies");
+            if (proxies == null || proxies.isEmpty()) {
+                return WVPResult.fail(-1, "拉流代理列表不能为空");
+            }
+
+            int successCount = 0;
+            int failCount = 0;
+            List<String> errors = new ArrayList<>();
+
+            for (Map<String, String> proxy : proxies) {
+                String app = proxy.get("app");
+                String stream = proxy.get("stream");
+                if (!StringUtils.hasText(app) || !StringUtils.hasText(stream)) {
+                    failCount++;
+                    errors.add("app或stream为空");
+                    continue;
+                }
+
+                try {
+                    factoryGroupService.addProxyToGroup(groupId, app, stream);
+                    successCount++;
+                } catch (Exception e) {
+                    failCount++;
+                    errors.add(String.format("%s/%s: %s", app, stream, e.getMessage()));
+                }
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("successCount", successCount);
+            result.put("failCount", failCount);
+            result.put("errors", errors);
+            return WVPResult.success(result);
+        } catch (Exception e) {
+            log.error("批量添加拉流代理到分组失败", e);
+            return WVPResult.fail(-1, "批量添加失败: " + e.getMessage());
+        }
     }
 }

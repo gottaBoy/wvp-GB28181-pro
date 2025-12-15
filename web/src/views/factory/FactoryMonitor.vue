@@ -46,6 +46,14 @@
             </div>
             <div class="toolbar-right">
               <el-checkbox
+                v-model="groupByWarehouse"
+                size="small"
+                @change="toggleGroupByWarehouse"
+              >
+                按分组显示
+              </el-checkbox>
+              <el-divider direction="vertical" />
+              <el-checkbox
                 v-model="selectAll"
                 :indeterminate="isIndeterminate"
                 @change="handleSelectAll"
@@ -136,7 +144,93 @@
               style="margin-bottom: 10px;"
             />
             
-            <el-checkbox-group v-model="selectedCameras">
+            <!-- 按分组显示 -->
+            <div v-if="groupByWarehouse">
+              <div
+                v-for="group in cameraGroups"
+                :key="getGroupKey(group)"
+                class="warehouse-group"
+              >
+                <div
+                  class="warehouse-header"
+                  @click="toggleGroup(getGroupKey(group))"
+                >
+                  <i :class="expandedGroups[getGroupKey(group)] ? 'el-icon-arrow-down' : 'el-icon-arrow-right'" />
+                  <span class="warehouse-name">{{ group.groupName }}</span>
+                  <el-tag size="mini" type="info">{{ group.count }} 个摄像头</el-tag>
+                  <!-- 分组的全选checkbox：移出el-checkbox-group，独立管理 -->
+                  <el-checkbox
+                    :value="isGroupAllSelected(group)"
+                    :indeterminate="isGroupIndeterminate(group)"
+                    @click.native.stop
+                    @change="handleGroupSelectAll(group, $event)"
+                  >
+                    全选
+                  </el-checkbox>
+                </div>
+                <div
+                  v-show="expandedGroups[getGroupKey(group)]"
+                  class="warehouse-cameras"
+                >
+                  <!-- 每个分组内的摄像头使用独立的el-checkbox-group -->
+                  <el-checkbox-group v-model="selectedCameras">
+                    <div
+                      v-for="camera in group.cameras"
+                      :key="camera.id"
+                      :class="['camera-item', { 'playing': playingCameras.includes(camera.id) }]"
+                    >
+                      <el-checkbox :label="camera.id" class="camera-checkbox">
+                        <div class="camera-info">
+                          <i class="el-icon-video-camera" />
+                          <span class="camera-name">{{ camera.name }}</span>
+                          <el-tag size="mini" type="info">通道 {{ camera.stream }}</el-tag>
+                          <el-tag
+                            v-if="camera.pulling"
+                            size="mini"
+                            type="success"
+                            style="margin-left: 5px;"
+                          >
+                            在线
+                          </el-tag>
+                          <el-tag
+                            v-if="playingCameras.includes(camera.id)"
+                            size="mini"
+                            type="warning"
+                            style="margin-left: 5px;"
+                          >
+                            播放中
+                          </el-tag>
+                        </div>
+                      </el-checkbox>
+                      <div class="camera-actions">
+                        <el-button
+                          v-if="!playingCameras.includes(camera.id)"
+                          type="text"
+                          size="small"
+                          icon="el-icon-video-play"
+                          @click.stop="playSingleCamera(camera)"
+                        >
+                          播放
+                        </el-button>
+                        <el-button
+                          v-else
+                          type="text"
+                          size="small"
+                          icon="el-icon-video-pause"
+                          style="color: #f56c6c;"
+                          @click.stop="stopSingleCamera(camera)"
+                        >
+                          停止
+                        </el-button>
+                      </div>
+                    </div>
+                  </el-checkbox-group>
+                </div>
+              </div>
+            </div>
+
+            <!-- 不分组显示（原有方式） -->
+            <el-checkbox-group v-else v-model="selectedCameras">
               <div
                 v-for="camera in cameras"
                 :key="camera.id"
@@ -312,6 +406,7 @@ export default {
       selectedFactory: null,
       selectedFactoryName: '',
       cameras: [],
+      cameraGroups: [], // 按库分组的摄像头列表
       selectedCameras: [],
       selectAll: false,
       isIndeterminate: false,
@@ -322,7 +417,9 @@ export default {
       isFullscreen: false,
       retryCount: {}, // 重试次数记录
       maxRetry: 3, // 最大重试次数
-      apiCallLock: {} // API调用锁，防止重复调用
+      apiCallLock: {}, // API调用锁，防止重复调用
+      groupByWarehouse: true, // 是否按分组显示
+      expandedGroups: {} // 展开的分组（groupKey -> true/false）
     }
   },
   computed: {
@@ -434,8 +531,8 @@ export default {
       }
       
       try {
-        console.log('[厂区监控] 开始加载摄像头，厂区:', this.selectedFactory, '静默模式:', silent)
-        const response = await getFactoryCameras(this.selectedFactory)
+        console.log('[厂区监控] 开始加载摄像头，厂区:', this.selectedFactory, '按分组显示:', this.groupByWarehouse, '静默模式:', silent)
+        const response = await getFactoryCameras(this.selectedFactory, this.groupByWarehouse)
         console.log('[厂区监控] API原始响应:', response)
         console.log('[厂区监控] 响应状态码:', response.status)
         console.log('[厂区监控] 响应数据:', response.data)
@@ -444,8 +541,26 @@ export default {
           throw new Error('API响应数据为空')
         }
         
-        this.cameras = response.data || []
+        if (this.groupByWarehouse) {
+          // 按库分组的数据结构
+          this.cameraGroups = response.data || []
+          // 展开所有分组（默认展开）
+          this.cameraGroups.forEach(group => {
+            const groupKey = this.getGroupKey(group)
+            if (this.expandedGroups[groupKey] === undefined) {
+              this.$set(this.expandedGroups, groupKey, true)
+            }
+          })
+          // 扁平化所有摄像头用于统计
+          this.cameras = this.cameraGroups.flatMap(group => group.cameras || [])
+        } else {
+          // 不分组的数据结构
+          this.cameras = response.data || []
+          this.cameraGroups = []
+        }
+        
         console.log('[厂区监控] 摄像头列表:', this.cameras)
+        console.log('[厂区监控] 库分组:', this.cameraGroups)
         console.log(`[厂区监控] 厂区 ${this.selectedFactory} 摄像头加载完成，共 ${this.cameras.length} 个`)
         
         // 非静默模式才显示提示
@@ -464,6 +579,111 @@ export default {
           this.$message.error('加载摄像头列表失败: ' + errorMsg)
         }
       }
+    },
+
+    // 切换按分组显示
+    toggleGroupByWarehouse() {
+      this.loadCameras(true)
+    },
+
+    // 获取分组唯一标识（使用groupId）
+    getGroupKey(group) {
+      // 使用groupId作为唯一标识，0表示未分组
+      const groupId = group.groupId !== null && group.groupId !== undefined ? group.groupId : 0
+      return `group_${groupId}`
+    },
+
+    // 切换分组的展开/折叠
+    toggleGroup(groupKey) {
+      this.$set(this.expandedGroups, groupKey, !this.expandedGroups[groupKey])
+    },
+
+    // 检查分组是否全选（只检查当前分组的摄像头，确保每个分组独立）
+    // 关键：必须通过groupId精确匹配，确保只检查当前分组的摄像头
+    isGroupAllSelected(group) {
+      if (!group.cameras || group.cameras.length === 0) return false
+      
+      // 获取当前分组的groupId，确保类型一致
+      const currentGroupId = group.groupId != null ? Number(group.groupId) : 0
+      
+      // 关键：只检查属于当前分组的摄像头（通过groupId精确匹配）
+      // 这样可以确保每个分组的全选状态完全独立，互不影响
+      const groupCameras = group.cameras.filter(camera => {
+        const cameraGroupId = camera.groupId != null ? Number(camera.groupId) : 0
+        return cameraGroupId === currentGroupId
+      })
+      
+      if (groupCameras.length === 0) return false
+      
+      // 检查该分组的所有摄像头是否都已选中
+      return groupCameras.every(camera => this.selectedCameras.includes(camera.id))
+    },
+
+    // 检查分组是否部分选中（只检查当前分组的摄像头，确保每个分组独立）
+    // 关键：必须通过groupId精确匹配，确保只检查当前分组的摄像头
+    isGroupIndeterminate(group) {
+      if (!group.cameras || group.cameras.length === 0) return false
+      
+      // 获取当前分组的groupId，确保类型一致
+      const currentGroupId = group.groupId != null ? Number(group.groupId) : 0
+      
+      // 关键：只检查属于当前分组的摄像头（通过groupId精确匹配）
+      // 这样可以确保每个分组的半选状态完全独立，互不影响
+      const groupCameras = group.cameras.filter(camera => {
+        const cameraGroupId = camera.groupId != null ? Number(camera.groupId) : 0
+        return cameraGroupId === currentGroupId
+      })
+      
+      if (groupCameras.length === 0) return false
+      
+      // 计算当前分组中已选中的摄像头数量
+      const selectedCount = groupCameras.filter(camera => this.selectedCameras.includes(camera.id)).length
+      
+      // 部分选中：有选中但不是全部选中
+      return selectedCount > 0 && selectedCount < groupCameras.length
+    },
+
+    // 分组的全选/取消全选（只操作当前分组的摄像头，确保每个分组完全独立）
+    // 关键：必须通过groupId精确匹配，确保只操作当前分组的摄像头
+    handleGroupSelectAll(group, checked) {
+      if (!group.cameras || group.cameras.length === 0) return
+      
+      // 获取当前分组的groupId，确保类型一致
+      const currentGroupId = group.groupId != null ? Number(group.groupId) : 0
+      
+      // 关键：只获取属于当前分组的摄像头ID（通过groupId精确匹配）
+      // 这样可以确保每个分组的全选操作完全独立，互不影响
+      const groupCameraIds = group.cameras
+        .filter(camera => {
+          // 验证摄像头是否真的属于当前分组（精确匹配groupId）
+          const cameraGroupId = camera.groupId != null ? Number(camera.groupId) : 0
+          return cameraGroupId === currentGroupId
+        })
+        .map(c => c.id)
+      
+      // 如果没有匹配的摄像头，直接返回
+      if (groupCameraIds.length === 0) {
+        console.warn(`[厂区监控] 分组 ${group.groupName} (groupId=${currentGroupId}) 没有匹配的摄像头`)
+        return
+      }
+      
+      // 确保只操作当前分组的摄像头，不影响其他分组
+      if (checked) {
+        // 全选：只添加当前分组中所有摄像头（不重复添加）
+        groupCameraIds.forEach(id => {
+          if (!this.selectedCameras.includes(id)) {
+            this.selectedCameras.push(id)
+          }
+        })
+      } else {
+        // 取消全选：只移除当前分组中所有摄像头（不影响其他分组的选中状态）
+        this.selectedCameras = this.selectedCameras.filter(id => !groupCameraIds.includes(id))
+      }
+      
+      // 强制更新视图，确保所有分组的全选状态正确显示
+      this.$nextTick(() => {
+        this.$forceUpdate()
+      })
     },
 
     // 刷新摄像头列表
@@ -1142,6 +1362,55 @@ export default {
   border-radius: 4px;
   background-color: #fff;
   flex-shrink: 0;
+}
+
+.warehouse-group {
+  margin-bottom: 15px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #fff;
+
+  .warehouse-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    background-color: #f5f7fa;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.3s;
+
+    &:hover {
+      background-color: #ecf5ff;
+    }
+
+    i {
+      margin-right: 8px;
+      color: #909399;
+      font-size: 14px;
+      transition: transform 0.3s;
+    }
+
+    .warehouse-name {
+      flex: 1;
+      font-weight: 600;
+      font-size: 14px;
+      color: #303133;
+    }
+
+    .el-tag {
+      margin-right: 10px;
+    }
+
+    .el-checkbox {
+      margin-left: auto;
+    }
+  }
+
+  .warehouse-cameras {
+    padding: 10px;
+    background-color: #fafafa;
+  }
 }
 
 .camera-item {
