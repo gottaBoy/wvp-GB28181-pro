@@ -100,13 +100,13 @@
                 >
                   16画
                 </el-button>
-                <el-button
+                <!-- <el-button
                   size="small"
                   :type="gridLayout === 0 ? 'primary' : ''"
                   @click="changeGridLayout(0)"
                 >
                   全部
-                </el-button>
+                </el-button> -->
               </el-button-group>
               <el-button
                 size="small"
@@ -318,7 +318,7 @@ export default {
       playingCameras: [],
       playingVideos: {},
       updateTimer: null,
-      gridLayout: 0, // 画面布局：0=全部, 1/4/9/16（默认全部）
+      gridLayout: 1, // 画面布局：0=全部, 1/4/9/16（默认全部）
       isFullscreen: false,
       retryCount: {}, // 重试次数记录
       maxRetry: 3, // 最大重试次数

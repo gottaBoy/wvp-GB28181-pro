@@ -143,7 +143,8 @@ public class FactoryMonitorController {
                     Map<String, Object> camera = new HashMap<>();
                     camera.put("id", proxy.getId());
                     camera.put("stream", proxy.getStream());
-                    camera.put("name", getStreamName(proxy.getStream()));
+
+                    camera.put("name", proxy.getName() != null ? proxy.getName() : getStreamName(proxy.getStream()));
                     camera.put("app", proxy.getApp());
                     camera.put("pulling", proxy.getPulling() != null ? proxy.getPulling() : false);
                     camera.put("enable", proxy.isEnable());

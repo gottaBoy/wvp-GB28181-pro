@@ -18,6 +18,9 @@
               <el-option key="FFmpeg" label="FFmpeg" value="ffmpeg" />
             </el-select>
           </el-form-item>
+          <el-form-item label="名称" prop="name">
+            <el-input v-model="streamProxy.name" clearable placeholder="请输入名称" />
+          </el-form-item>
           <el-form-item label="应用名" prop="app">
             <el-input v-model="streamProxy.app" clearable />
           </el-form-item>

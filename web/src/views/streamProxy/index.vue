@@ -51,6 +51,7 @@
       </el-form>
       <devicePlayer ref="devicePlayer" />
       <el-table size="small" :data="streamProxyList" style="width: 100%" height="calc(100% - 64px)">
+        <el-table-column prop="name" label="名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="app" label="流应用名" min-width="120" show-overflow-tooltip />
         <el-table-column prop="stream" label="流ID" min-width="120" show-overflow-tooltip />
         <el-table-column label="流地址" min-width="250" show-overflow-tooltip>

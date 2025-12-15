@@ -68,6 +68,7 @@ public class StreamProxyParam {
         streamProxy.setEnableRemoveNoneReader(enableRemoveNoneReader);
         streamProxy.setEnableDisableNoneReader(enableDisableNoneReader);
         streamProxy.setFfmpegCmdKey(ffmpegCmdKey);
+        streamProxy.setName(name);
         streamProxy.setGbName(name);
         return streamProxy;
 

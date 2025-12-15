@@ -11,10 +11,10 @@ import java.util.List;
 @Repository
 public interface StreamProxyMapper {
 
-    @Insert("INSERT INTO wvp_stream_proxy (type, app, stream,relates_media_server_id, src_url, " +
+    @Insert("INSERT INTO wvp_stream_proxy (type, app, stream, name, relates_media_server_id, src_url, " +
             "timeout, ffmpeg_cmd_key, rtsp_type, enable_audio, enable_mp4, enable, pulling, " +
             "enable_remove_none_reader, enable_disable_none_reader, server_id, create_time) VALUES" +
-            "(#{type}, #{app}, #{stream}, #{relatesMediaServerId}, #{srcUrl}, " +
+            "(#{type}, #{app}, #{stream}, #{name}, #{relatesMediaServerId}, #{srcUrl}, " +
             "#{timeout}, #{ffmpegCmdKey}, #{rtspType}, #{enableAudio}, #{enableMp4}, #{enable}, #{pulling}, " +
             "#{enableRemoveNoneReader}, #{enableDisableNoneReader}, #{serverId}, #{createTime} )")
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
@@ -24,6 +24,7 @@ public interface StreamProxyMapper {
             "SET type=#{type}, " +
             "app=#{app}," +
             "stream=#{stream}," +
+            "name=#{name}," +
             "relates_media_server_id=#{relatesMediaServerId}, " +
             "src_url=#{srcUrl}," +
             "timeout=#{timeout}, " +

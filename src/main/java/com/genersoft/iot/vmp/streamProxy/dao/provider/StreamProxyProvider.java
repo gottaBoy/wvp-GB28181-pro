@@ -38,6 +38,8 @@ public class StreamProxyProvider {
         if (params.get("query") != null) {
             sqlBuild.append(" AND ")
                     .append(" (")
+                    .append(" st.name LIKE ").append("'%").append(params.get("query")).append("%' escape '/'")
+                    .append(" OR")
                     .append(" st.app LIKE ").append("'%").append(params.get("query")).append("%' escape '/'")
                     .append(" OR")
                     .append(" st.stream LIKE ").append("'%").append(params.get("query")).append("%' escape '/'")
