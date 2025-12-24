@@ -1,0 +1,62 @@
+version: '3'
+services:
+  polaris-media:
+    image: harbor.intra.zeron.ai/library/zlmediakit:master  # 替换为官方镜像
+    restart: always
+    networks:
+      - media-net
+    ports:
+      - "8080:80/tcp"
+      #- "6080:80/tcp"     # [播流]HTTP  安全考虑-非测试阶段需要注释掉，改为由nginx代理播流地址
+      #- "4443:443/tcp"     # [播流]HTTPS 安全考虑-非测试阶段需要注释掉，改为由nginx代理播流地址
+      - "${MediaRtmp:-10935}:${MediaRtmp:-10935}/tcp"   # [收流]RTMP
+      - "${MediaRtmp:-10935}:${MediaRtmp:-10935}/udp"   # [收流]RTMP
+      #- "41935:41935/tcp"   # [收流]RTMPS 无效
+      - "${MediaRtsp:-5540}:${MediaRtsp:-5540}/tcp"     # [收流]RTSP
+      - "${MediaRtsp:-5540}:${MediaRtsp:-5540}/udp"     # [收流]RTSP
+      #- "45540:45540/tcp"   # [收流]RTSPS 无效
+      - "${MediaRtp:-10000}:${MediaRtp:-10000}/tcp"   # [收流]RTP
+      - "${MediaRtp:-10000}:${MediaRtp:-10000}/udp"   # [收流]RTP
+      - "8000:8000/tcp"   # [播流]WebRTC TCP端口
+      - "8000:8000/udp"   # [播流]WebRTC UDP端口   
+    volumes:
+      - ./volumes/video:/opt/media/bin/www/record/
+      - ./logs/media:/opt/media/bin/log/
+      - ./media/config.ini:/conf/config.ini
+    environment:
+      TZ: "Asia/Shanghai"
+    command: [
+        'MediaServer',
+        '-c', '/conf/config.ini',
+        '-l', '0'
+    ]
+
+  zlmexporter:
+     # https://github.com/guohuachan/ZLMediaKit_exporter
+     image: harbor.intra.zeron.ai/library/zlmexporter:2025-09-11
+     restart: unless-stopped
+     networks:
+       - media-net
+     ports:
+       - "9091:9091"  # Exporter metrics端口
+     environment:
+       # ZLMediaKit API地址（使用服务名，因为在同一网络）
+       - ZLM_API_URL=http://polaris-media
+       # ZLMediaKit API密钥（从config.ini中获取）
+       - ZLM_API_SECRET=su6TiedN2rVAmBbIDX0aa0QTiBJLBdcf
+       # Exporter监听端口
+       - ZLM_EXPORTER_TELEMETRY_ADDRESS=:9091
+       - ZLM_EXPORTER_TELEMETRY_PATH=/metrics
+       - ZLM_EXPORTER_SSL_VERIFY=true
+       # 采集间隔（秒）
+       - SCRAPE_INTERVAL=10
+     depends_on:
+       - polaris-media
+     healthcheck:
+       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9091/metrics"]
+       interval: 30s
+       timeout: 10s
+       retries: 3
+networks:
+  media-net:
+    driver: bridge
