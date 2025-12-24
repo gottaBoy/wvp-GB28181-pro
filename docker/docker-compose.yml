@@ -74,7 +74,7 @@ services:
       - "8000:8000/udp"   # [播流]WebRTC UDP端口   
     volumes:
       - ./volumes/video:/opt/media/bin/www/record/
-      - ./logs/media:/opt/media/log/
+      - ./logs/media:/opt/media/bin/log/
       - ./media/config.ini:/conf/config.ini
     environment:
       TZ: "Asia/Shanghai"
