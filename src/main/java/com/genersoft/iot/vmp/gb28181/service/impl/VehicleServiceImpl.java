@@ -30,6 +30,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -492,30 +493,62 @@ public class VehicleServiceImpl implements IVehicleService {
             return false;
         }
 
+        // 优化：检查哪些相机已经在推流，过滤掉已推流的相机
+        List<String> camerasToSubscribe = new ArrayList<>();
+        String currentTime = DateUtil.getNow();
+        
+        for (String cameraId : cameraIds) {
+            // 检查流是否已经存在
+            StreamInfo existingStreamInfo = mediaServerService.getMediaByAppAndStream(vehicleId, cameraId);
+            if (existingStreamInfo != null) {
+                log.info("[车辆相机订阅] 相机已在推流，跳过: vehicleId={}, cameraId={}", vehicleId, cameraId);
+                // 更新相机状态为active（确保状态一致）
+                vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
+                continue;
+            }
+            
+            // 检查推流记录是否正在推流
+            StreamPush streamPush = streamPushService.getPush(vehicleId, cameraId);
+            if (streamPush != null && streamPush.isPushing()) {
+                log.info("[车辆相机订阅] 相机推流记录显示正在推流，跳过: vehicleId={}, cameraId={}", vehicleId, cameraId);
+                // 更新相机状态为active（确保状态一致）
+                vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
+                continue;
+            }
+            
+            // 需要订阅的相机
+            camerasToSubscribe.add(cameraId);
+        }
+
+        // 如果所有相机都已经在推流，直接返回成功
+        if (camerasToSubscribe.isEmpty()) {
+            log.info("[车辆相机订阅] 所有相机已在推流，直接返回成功: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
+            return true;
+        }
+
         log.info("[车辆相机订阅] 准备调用车端API:");
         log.info("  - 车辆ID: {}", vehicleId);
         log.info("  - 车辆IP地址: {}", ipAddress);
         log.info("  - API端口: {}", DEFAULT_HTTP_API_PORT);
-        log.info("  - 相机ID列表: {}", cameraIds);
+        log.info("  - 需要订阅的相机ID列表: {}", camerasToSubscribe);
         log.info("  - 请求URL: http://{}:{}/api/cameras/subscribe", ipAddress, DEFAULT_HTTP_API_PORT);
 
         try {
             log.info("[车辆相机订阅] 开始调用车辆端HTTP API");
             
-            // 调用车辆端HTTP API
+            // 调用车辆端HTTP API（只订阅需要订阅的相机）
             boolean success = vehicleHttpClientService.subscribeCameras(
                 ipAddress, 
                 DEFAULT_HTTP_API_PORT, 
-                cameraIds, 
+                camerasToSubscribe, 
                 null // 暂时不使用API密钥，后续可从配置获取
             );
             
             log.info("[车辆相机订阅] 车端API调用完成: success={}", success);
 
             if (success) {
-                // 为每个相机创建推流记录并更新状态
-                String currentTime = DateUtil.getNow();
-                for (String cameraId : cameraIds) {
+                // 为每个需要订阅的相机创建推流记录并更新状态
+                for (String cameraId : camerasToSubscribe) {
                     // 首先为相机创建推流记录
                     VehicleCamera camera = vehicleMapper.getCamerasByVehicleId(vehicleId).stream()
                             .filter(c -> c.getCameraId().equals(cameraId))
@@ -528,14 +561,14 @@ public class VehicleServiceImpl implements IVehicleService {
                         vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
                     }
                 }
-                log.info("[车辆相机订阅] 订阅成功: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
+                log.info("[车辆相机订阅] 订阅成功: vehicleId={}, cameraIds={}", vehicleId, camerasToSubscribe);
             } else {
-                log.warn("[车辆相机订阅] 订阅失败: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
+                log.warn("[车辆相机订阅] 订阅失败: vehicleId={}, cameraIds={}", vehicleId, camerasToSubscribe);
             }
 
             return success;
         } catch (Exception e) {
-            log.error("[车辆相机订阅] 异常: vehicleId={}, cameraIds={}", vehicleId, cameraIds, e);
+            log.error("[车辆相机订阅] 异常: vehicleId={}, cameraIds={}", vehicleId, camerasToSubscribe, e);
             return false;
         }
     }
@@ -559,19 +592,79 @@ public class VehicleServiceImpl implements IVehicleService {
             return false;
         }
 
+        // 优化：检查哪些相机可以取消订阅（没有播放者）
+        List<String> camerasToUnsubscribe = new ArrayList<>();
+        String currentTime = DateUtil.getNow();
+        
+        for (String cameraId : cameraIds) {
+            // 检查流是否存在
+            StreamInfo existingStreamInfo = mediaServerService.getMediaByAppAndStream(vehicleId, cameraId);
+            if (existingStreamInfo == null) {
+                log.info("[车辆相机取消订阅] 流已不存在，跳过: vehicleId={}, cameraId={}", vehicleId, cameraId);
+                // 更新相机状态为inactive（确保状态一致）
+                vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, false, "inactive", null, currentTime);
+                continue;
+            }
+
+            // 检查播放人数
+            Integer readerCount = null;
+            if (existingStreamInfo.getMediaServer() != null && existingStreamInfo.getMediaInfo() != null) {
+                MediaInfo mediaInfo = existingStreamInfo.getMediaInfo();
+                readerCount = mediaInfo.getReaderCount();
+            } else if (existingStreamInfo.getMediaServer() != null) {
+                // 如果StreamInfo中没有MediaInfo，尝试获取最新的MediaInfo
+                try {
+                    MediaInfo mediaInfo = mediaServerService.getMediaInfo(
+                        existingStreamInfo.getMediaServer(), 
+                        vehicleId, 
+                        cameraId
+                    );
+                    if (mediaInfo != null) {
+                        readerCount = mediaInfo.getReaderCount();
+                    }
+                } catch (Exception e) {
+                    log.warn("[车辆相机取消订阅] 获取MediaInfo失败: vehicleId={}, cameraId={}", vehicleId, cameraId, e);
+                }
+            }
+
+            // 如果有其他播放者（readerCount > 1），不能取消订阅
+            // readerCount = 0: 没有人观看，可以取消订阅
+            // readerCount = 1: 只有当前用户自己在观看，可以取消订阅
+            // readerCount > 1: 有其他人在观看，不能取消订阅
+            if (readerCount != null && readerCount > 1) {
+                log.info("[车辆相机取消订阅] 流正在被{}人观看，不能取消订阅，跳过: vehicleId={}, cameraId={}, readerCount={}", 
+                        readerCount, vehicleId, cameraId, readerCount);
+                continue;
+            }
+            
+            // 可以取消订阅的相机
+            camerasToUnsubscribe.add(cameraId);
+        }
+
+        // 如果所有相机都有播放者或已不存在，直接返回成功
+        if (camerasToUnsubscribe.isEmpty()) {
+            log.info("[车辆相机取消订阅] 所有相机都有播放者或已不存在，直接返回成功: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
+            return true;
+        }
+
+        log.info("[车辆相机取消订阅] 准备调用车端API:");
+        log.info("  - 车辆ID: {}", vehicleId);
+        log.info("  - 车辆IP地址: {}", ipAddress);
+        log.info("  - API端口: {}", DEFAULT_HTTP_API_PORT);
+        log.info("  - 需要取消订阅的相机ID列表: {}", camerasToUnsubscribe);
+
         try {
-            // 调用车辆端HTTP API
+            // 调用车辆端HTTP API（只取消订阅可以取消的相机）
             boolean success = vehicleHttpClientService.unsubscribeCameras(
                 ipAddress, 
                 DEFAULT_HTTP_API_PORT, 
-                cameraIds, 
+                camerasToUnsubscribe, 
                 null // 暂时不使用API密钥，后续可从配置获取
             );
 
             if (success) {
                 // 停止推流并更新相机状态为inactive
-                String currentTime = DateUtil.getNow();
-                for (String cameraId : cameraIds) {
+                for (String cameraId : camerasToUnsubscribe) {
                     // 尝试停止推流
                     try {
                         streamPushPlayService.stop(vehicleId, cameraId);
@@ -583,14 +676,14 @@ public class VehicleServiceImpl implements IVehicleService {
                     // 更新相机状态为inactive
                     vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, false, "inactive", null, currentTime);
                 }
-                log.info("[车辆相机取消订阅] 取消订阅成功: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
+                log.info("[车辆相机取消订阅] 取消订阅成功: vehicleId={}, cameraIds={}", vehicleId, camerasToUnsubscribe);
             } else {
-                log.warn("[车辆相机取消订阅] 取消订阅失败: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
+                log.warn("[车辆相机取消订阅] 取消订阅失败: vehicleId={}, cameraIds={}", vehicleId, camerasToUnsubscribe);
             }
 
             return success;
         } catch (Exception e) {
-            log.error("[车辆相机取消订阅] 异常: vehicleId={}, cameraIds={}", vehicleId, cameraIds, e);
+            log.error("[车辆相机取消订阅] 异常: vehicleId={}, cameraIds={}", vehicleId, camerasToUnsubscribe, e);
             return false;
         }
     }
@@ -811,6 +904,13 @@ public class VehicleServiceImpl implements IVehicleService {
             return null;
         }
 
+        // 优化：先检查流是否已经存在，如果存在则直接返回，不调用车端
+        StreamInfo existingStreamInfo = mediaServerService.getMediaByAppAndStream(vehicleId, cameraId);
+        if (existingStreamInfo != null) {
+            log.info("[直接启动推流] 流已存在，直接返回: vehicleId={}, cameraId={}", vehicleId, cameraId);
+            return existingStreamInfo;
+        }
+
         Vehicle vehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
         if (vehicle == null) {
             log.warn("[直接启动推流] 车辆不存在: vehicleId={}", vehicleId);
@@ -922,6 +1022,46 @@ public class VehicleServiceImpl implements IVehicleService {
         if (!StringUtils.hasText(vehicleId) || !StringUtils.hasText(cameraId)) {
             log.warn("[直接停止推流] 参数为空: vehicleId={}, cameraId={}", vehicleId, cameraId);
             return false;
+        }
+
+        // 优化：先检查流是否已经不存在，如果不存在则直接返回成功，不调用车端
+        StreamInfo existingStreamInfo = mediaServerService.getMediaByAppAndStream(vehicleId, cameraId);
+        if (existingStreamInfo == null) {
+            log.info("[直接停止推流] 流已不存在，直接返回成功: vehicleId={}, cameraId={}", vehicleId, cameraId);
+            // 更新本地相机状态为停止推流（确保状态一致）
+            String currentTime = DateUtil.getNow();
+            vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, false, "inactive", null, currentTime);
+            return true;
+        }
+
+        // 优化：检查播放人数，如果有其他人正在观看（readerCount > 1），则不能停止，直接返回成功
+        if (existingStreamInfo.getMediaServer() != null && existingStreamInfo.getMediaInfo() != null) {
+            MediaInfo mediaInfo = existingStreamInfo.getMediaInfo();
+            Integer readerCount = mediaInfo.getReaderCount();
+            if (readerCount != null && readerCount > 1) {
+                log.info("[直接停止推流] 流正在被{}人观看，不能停止，直接返回成功: vehicleId={}, cameraId={}, readerCount={}", 
+                        readerCount, vehicleId, cameraId, readerCount);
+                return true;
+            }
+        } else if (existingStreamInfo.getMediaServer() != null) {
+            // 如果StreamInfo中没有MediaInfo，尝试获取最新的MediaInfo
+            try {
+                MediaInfo mediaInfo = mediaServerService.getMediaInfo(
+                    existingStreamInfo.getMediaServer(), 
+                    vehicleId, 
+                    cameraId
+                );
+                if (mediaInfo != null) {
+                    Integer readerCount = mediaInfo.getReaderCount();
+                    if (readerCount != null && readerCount > 1) {
+                        log.info("[直接停止推流] 流正在被{}人观看，不能停止，直接返回成功: vehicleId={}, cameraId={}, readerCount={}", 
+                                readerCount, vehicleId, cameraId, readerCount);
+                        return true;
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[直接停止推流] 获取MediaInfo失败，继续执行停止操作: vehicleId={}, cameraId={}", vehicleId, cameraId, e);
+            }
         }
 
         Vehicle vehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
