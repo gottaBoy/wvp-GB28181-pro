@@ -660,7 +660,7 @@ public class VehicleServiceImpl implements IVehicleService {
             // 获取流信息以生成WebRTC播放链接
             // 创建MediaInfo并设置originTypeStr，确保URL包含此参数
             MediaInfo mediaInfo = new MediaInfo();
-            mediaInfo.setOriginTypeStr("rtmp_push");
+            mediaInfo.setOriginTypeStr("rtsp_push");
             
             StreamInfo streamInfo = mediaServerService.getStreamInfoByAppAndStream(
                 mediaServer, 
@@ -888,7 +888,7 @@ public class VehicleServiceImpl implements IVehicleService {
                 
                 // 获取流信息
                 MediaInfo mediaInfo = new MediaInfo();
-                mediaInfo.setOriginTypeStr("rtmp_push");
+                mediaInfo.setOriginTypeStr("rtsp_push");
                 
                 StreamInfo streamInfo = mediaServerService.getStreamInfoByAppAndStream(
                     mediaServer, 
