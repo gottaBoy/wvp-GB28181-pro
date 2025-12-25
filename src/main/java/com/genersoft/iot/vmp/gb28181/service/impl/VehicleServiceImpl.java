@@ -498,33 +498,75 @@ public class VehicleServiceImpl implements IVehicleService {
         String currentTime = DateUtil.getNow();
         
         for (String cameraId : cameraIds) {
-            // 检查流是否已经存在
+            log.debug("[车辆相机订阅] 检查相机状态: vehicleId={}, cameraId={}", vehicleId, cameraId);
+            
+            // 检查流是否已经存在且在线（在媒体服务器中）
             StreamInfo existingStreamInfo = mediaServerService.getMediaByAppAndStream(vehicleId, cameraId);
+            boolean streamExistsAndOnline = false;
+            
             if (existingStreamInfo != null) {
-                log.info("[车辆相机订阅] 相机已在推流，跳过: vehicleId={}, cameraId={}", vehicleId, cameraId);
-                // 更新相机状态为active（确保状态一致）
-                vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
-                continue;
+                // 进一步检查流是否真的在线（检查 MediaInfo 的 online 状态）
+                MediaInfo mediaInfo = null;
+                if (existingStreamInfo.getMediaInfo() != null) {
+                    mediaInfo = existingStreamInfo.getMediaInfo();
+                } else if (existingStreamInfo.getMediaServer() != null) {
+                    // 如果 StreamInfo 中没有 MediaInfo，尝试获取最新的 MediaInfo
+                    try {
+                        mediaInfo = mediaServerService.getMediaInfo(
+                            existingStreamInfo.getMediaServer(), 
+                            vehicleId, 
+                            cameraId
+                        );
+                    } catch (Exception e) {
+                        log.warn("[车辆相机订阅] 获取MediaInfo失败: vehicleId={}, cameraId={}", vehicleId, cameraId, e);
+                    }
+                }
+                
+                // 只有当流存在且在线时，才跳过订阅
+                if (mediaInfo != null && Boolean.TRUE.equals(mediaInfo.getOnline())) {
+                    streamExistsAndOnline = true;
+                    log.info("[车辆相机订阅] 相机流已在媒体服务器中存在且在线，跳过: vehicleId={}, cameraId={}, readerCount={}", 
+                            vehicleId, cameraId, mediaInfo.getReaderCount());
+                    // 更新相机状态为active（确保状态一致）
+                    vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
+                    continue;
+                } else {
+                    log.info("[车辆相机订阅] 相机流存在但不在线，需要重新订阅: vehicleId={}, cameraId={}, online={}", 
+                            vehicleId, cameraId, mediaInfo != null ? mediaInfo.getOnline() : "unknown");
+                }
             }
             
             // 检查推流记录是否正在推流
             StreamPush streamPush = streamPushService.getPush(vehicleId, cameraId);
             if (streamPush != null && streamPush.isPushing()) {
-                log.info("[车辆相机订阅] 相机推流记录显示正在推流，跳过: vehicleId={}, cameraId={}", vehicleId, cameraId);
-                // 更新相机状态为active（确保状态一致）
-                vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
-                continue;
+                // 如果推流记录显示正在推流，但流不在线，可能是状态不同步，仍然需要订阅
+                if (!streamExistsAndOnline) {
+                    log.info("[车辆相机订阅] 推流记录显示正在推流，但流不在线，需要重新订阅: vehicleId={}, cameraId={}", 
+                            vehicleId, cameraId);
+                } else {
+                    log.info("[车辆相机订阅] 相机推流记录显示正在推流，跳过: vehicleId={}, cameraId={}", vehicleId, cameraId);
+                    // 更新相机状态为active（确保状态一致）
+                    vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
+                    continue;
+                }
             }
             
-            // 需要订阅的相机
+            // 流不存在或不在线，或推流记录不存在/不在推流状态，需要订阅
+            log.info("[车辆相机订阅] 相机需要订阅: vehicleId={}, cameraId={}, 流存在={}, 流在线={}, 推流记录存在={}, 推流状态={}", 
+                    vehicleId, cameraId, existingStreamInfo != null, streamExistsAndOnline,
+                    streamPush != null, streamPush != null ? streamPush.isPushing() : false);
             camerasToSubscribe.add(cameraId);
         }
 
         // 如果所有相机都已经在推流，直接返回成功
         if (camerasToSubscribe.isEmpty()) {
-            log.info("[车辆相机订阅] 所有相机已在推流，直接返回成功: vehicleId={}, cameraIds={}", vehicleId, cameraIds);
+            log.info("[车辆相机订阅] 所有相机已在推流，直接返回成功: vehicleId={}, cameraIds={}, 原始请求相机数={}", 
+                    vehicleId, cameraIds, cameraIds.size());
             return true;
         }
+        
+        log.info("[车辆相机订阅] 需要订阅的相机列表: vehicleId={}, 需要订阅数={}/{}, camerasToSubscribe={}", 
+                vehicleId, camerasToSubscribe.size(), cameraIds.size(), camerasToSubscribe);
 
         log.info("[车辆相机订阅] 准备调用车端API:");
         log.info("  - 车辆ID: {}", vehicleId);
@@ -910,6 +952,8 @@ public class VehicleServiceImpl implements IVehicleService {
             log.info("[直接启动推流] 流已存在，直接返回: vehicleId={}, cameraId={}", vehicleId, cameraId);
             return existingStreamInfo;
         }
+        
+        log.info("[直接启动推流] 流不存在，需要启动推流: vehicleId={}, cameraId={}", vehicleId, cameraId);
 
         Vehicle vehicle = vehicleMapper.getVehicleByVehicleId(vehicleId);
         if (vehicle == null) {
