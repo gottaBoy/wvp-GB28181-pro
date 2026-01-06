@@ -1017,16 +1017,17 @@ public class VehicleServiceImpl implements IVehicleService {
                 String currentTime = DateUtil.getNow();
                 vehicleMapper.updateCameraPushStatus(vehicleId, cameraId, true, "active", currentTime, currentTime);
                 
-                // 等待推流建立（最多等待10秒，因为ROS2订阅和推流进程启动需要时间）
+                // 等待推流建立（优化：减少等待时间，从10秒减少到5秒）
+                // 如果推流建立较慢，可以通过轮询接口获取状态
                 int retryCount = 0;
-                int maxRetry = 5; // 5次 x 2000ms = 10秒
+                int maxRetry = 5; // 5次 x 1000ms = 5秒（优化：从10秒减少到5秒）
                 StreamPush streamPush = null;
                 
-                log.info("[直接启动推流] 开始等待推流建立: vehicleId={}, cameraId={}, maxWaitTime={}秒", vehicleId, cameraId, maxRetry * 2);
+                log.info("[直接启动推流] 开始等待推流建立: vehicleId={}, cameraId={}, maxWaitTime={}秒", vehicleId, cameraId, maxRetry);
                 
                 while (retryCount < maxRetry) {
                     try {
-                        Thread.sleep(2000); // 每2000ms检查一次
+                        Thread.sleep(1000); // 每1000ms检查一次（优化：从2000ms减少到1000ms，提高响应速度）
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         log.warn("[直接启动推流] 等待被中断: vehicleId={}, cameraId={}", vehicleId, cameraId);
@@ -1040,7 +1041,7 @@ public class VehicleServiceImpl implements IVehicleService {
                         
                         if (streamPush.isPushing()) {
                             log.info("[直接启动推流] ✓ 推流已建立: vehicleId={}, cameraId={}, 等待时间={}秒", 
-                                    vehicleId, cameraId, (retryCount + 1) * 2);
+                                    vehicleId, cameraId, retryCount + 1);
                             break;
                         }
                     } else {
@@ -1052,7 +1053,7 @@ public class VehicleServiceImpl implements IVehicleService {
                 
                 if (streamPush == null || !streamPush.isPushing()) {
                     log.warn("[直接启动推流] ✗ 推流未建立（超时{}秒），但启动命令已发送: vehicleId={}, cameraId={}, streamPush存在={}", 
-                            maxRetry * 2, vehicleId, cameraId, streamPush != null);
+                            maxRetry, vehicleId, cameraId, streamPush != null);
                     return null;
                 }
                 
